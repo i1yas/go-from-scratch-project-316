@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"os"
 
-	"code/crawler"
+	"code/internal/app"
 )
 
 func main() {
 	ctx := context.Background()
 
-	output, err := crawler.Analyze(ctx, crawler.Options{})
+	cmd := app.BuildCommand()
+
+	err := cmd.Run(ctx, os.Args)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-
-	fmt.Println(string(output))
 }
