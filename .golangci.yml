@@ -1,0 +1,103 @@
+version: "2"
+
+run:
+    timeout: 5m
+    tests: true
+
+linters:
+    default: none
+    enable:
+        - errcheck
+        - errorlint
+        - forcetypeassert
+        - govet
+        - goconst
+        - ineffassign
+        - lll
+        - revive
+        - staticcheck
+        - unused
+        - wsl_v5
+
+    settings:
+        errcheck:
+            check-blank: true
+        errorlint:
+            errorf: true
+            errorf-multi: true
+            asserts: true
+            comparison: true
+        lll:
+            line-length: 120
+            tab-width: 1
+        goconst:
+            min-len: 3
+            min-occurrences: 3 
+            match-constant: true
+            numbers: false
+            find-duplicates: false
+            ignore-tests: true
+        revive:
+            rules:
+                - name: blank-imports
+                - name: bool-literal-in-expr
+                - name: context-as-argument
+                - name: context-keys-type
+
+                - name: cyclomatic
+                  arguments: [10]
+                  
+                - name: cognitive-complexity
+                  arguments: [15]
+
+                - name: dot-imports
+                - name: empty-block
+                - name: error-naming
+                - name: error-return
+                - name: error-strings
+                - name: errorf
+                - name: exported
+                - name: increment-decrement
+                - name: indent-error-flow
+                
+                - name: max-control-nesting
+                  arguments: [3]
+                
+                - name: range
+                - name: receiver-naming
+                - name: redefines-builtin-id
+                - name: superfluous-else
+                - name: time-naming
+                - name: unexported-return
+                - name: unreachable-code
+                - name: unused-parameter
+                - name: var-declaration
+                - name: var-naming
+    exclusions:
+        rules:
+            - linters:
+                  - revive
+              text: "exported var Err.+ should have comment or be unexported"
+
+formatters:
+    enable:
+        - gofmt
+        - gofumpt
+        - gci
+
+    settings:
+        gofumpt:
+            module-path: code
+            extra:
+                group-params: true
+                clothe-returns: true
+                balance-calls: true
+        gci:
+            sections:
+                - standard 
+                - default 
+                - localmodule
+
+issues:
+    max-issues-per-linter: 0
+    max-same-issues: 0
