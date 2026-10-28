@@ -1,6 +1,7 @@
 package crawler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -93,5 +94,13 @@ func TestAnalyze(t *testing.T) {
 		require.Equal(t, want.Depth, got.Depth)
 		require.Equal(t, 1, len(got.Pages))
 		require.Contains(t, got.Pages[0].Error, "EOF")
+	})
+
+	t.Run("error on canceled context", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+
+		_, err := Analyze(ctx, Options{})
+		require.ErrorIs(t, err, context.Canceled)
 	})
 }

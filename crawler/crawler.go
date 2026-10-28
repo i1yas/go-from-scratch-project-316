@@ -23,7 +23,14 @@ type Options struct {
 }
 
 // Analyze runs crawler and returns JSON report
-func Analyze(_ context.Context, opts Options) ([]byte, error) {
+func Analyze(ctx context.Context, opts Options) ([]byte, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+		break
+	}
+
 	report := report{
 		RootURL:     opts.URL,
 		Depth:       opts.Depth,
