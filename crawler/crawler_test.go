@@ -100,7 +100,14 @@ func TestAnalyze(t *testing.T) {
 		ctx, cancel := context.WithCancel(t.Context())
 		cancel()
 
-		_, err := Analyze(ctx, Options{})
+		server := httptest.NewTestServer(
+			t, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}),
+		)
+
+		_, err := Analyze(ctx, Options{
+			URL:        "http://test.com",
+			HTTPClient: server.Client(),
+		})
 		require.ErrorIs(t, err, context.Canceled)
 	})
 }

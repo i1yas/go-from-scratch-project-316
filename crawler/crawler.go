@@ -3,7 +3,9 @@ package crawler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 	"unicode"
@@ -24,38 +26,70 @@ type Options struct {
 
 // Analyze runs crawler and returns JSON report
 func Analyze(ctx context.Context, opts Options) ([]byte, error) {
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
-		break
+	crw, err := newCrawler(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	pages, err := crw.fetch(ctx, opts.URL)
+	if err != nil {
+		return nil, err
 	}
 
 	report := report{
 		RootURL:     opts.URL,
 		Depth:       opts.Depth,
 		GeneratedAt: time.Now(),
-		Pages:       []pageReport{},
+		Pages:       pages,
+	}
+
+	return formatReport(report)
+}
+
+type crawler struct {
+	rootURL   *url.URL
+	userAgent string
+	client    *http.Client
+}
+
+func newCrawler(opts Options) (*crawler, error) {
+	// TODO: validate url
+	rootURL, err := url.Parse(opts.URL)
+	if err != nil {
+		return nil, err
 	}
 
 	client := opts.HTTPClient
 	client.Timeout = opts.Timeout
 
-	page := pageReport{
-		URL:   opts.URL,
-		Depth: 0,
-	}
+	return &crawler{
+		rootURL:   rootURL,
+		userAgent: opts.UserAgent,
+		client:    client,
+	}, nil
+}
 
-	req, err := http.NewRequest("GET", opts.URL, nil)
+func (crw *crawler) fetch(ctx context.Context, pageURL string) ([]pageReport, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", pageURL, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	if opts.UserAgent != "" {
-		req.Header.Set("User-Agent", opts.UserAgent)
+	if crw.userAgent != "" {
+		req.Header.Set("User-Agent", crw.userAgent)
 	}
 
-	resp, err := client.Do(req)
+	page := pageReport{
+		URL:   pageURL,
+		Depth: 0,
+	}
+
+	resp, err := crw.client.Do(req)
+
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return nil, err
+	}
+
 	if err != nil {
 		page.Error = err.Error()
 	} else {
@@ -63,9 +97,7 @@ func Analyze(ctx context.Context, opts Options) ([]byte, error) {
 		page.Status = statusText(resp)
 	}
 
-	report.Pages = append(report.Pages, page)
-
-	return formatReport(report)
+	return []pageReport{page}, nil
 }
 
 type report struct {
