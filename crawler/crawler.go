@@ -1,6 +1,7 @@
 package crawler
 
 import (
+	"code/internal/weburl"
 	"context"
 	"encoding/json"
 	"errors"
@@ -53,8 +54,7 @@ type crawler struct {
 }
 
 func newCrawler(opts Options) (*crawler, error) {
-	// TODO: validate url
-	rootURL, err := url.Parse(opts.URL)
+	rootURL, err := weburl.Parse(opts.URL)
 	if err != nil {
 		return nil, err
 	}
