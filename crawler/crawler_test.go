@@ -110,4 +110,16 @@ func TestAnalyze(t *testing.T) {
 		})
 		require.ErrorIs(t, err, context.Canceled)
 	})
+
+	t.Run("invalid root url", func(t *testing.T) {
+		server := httptest.NewTestServer(
+			t, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}),
+		)
+
+		_, err := Analyze(t.Context(), Options{
+			URL:        "invalid",
+			HTTPClient: server.Client(),
+		})
+		require.ErrorIs(t, err, ErrInvalidRootURL)
+	})
 }

@@ -5,11 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 	"unicode"
+)
+
+var (
+	ErrInvalidRootURL = errors.New("invalid root url")
 )
 
 // Options contains options for crawling
@@ -56,7 +61,7 @@ type crawler struct {
 func newCrawler(opts Options) (*crawler, error) {
 	rootURL, err := weburl.Parse(opts.URL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w '%s': %w", ErrInvalidRootURL, opts.URL, err)
 	}
 
 	client := opts.HTTPClient
