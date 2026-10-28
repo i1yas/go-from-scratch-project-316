@@ -14,7 +14,8 @@ import (
 )
 
 var (
-	ErrInvalidRootURL = errors.New("invalid root url")
+	ErrInvalidRootURL        = errors.New("invalid root url")
+	ErrHTTPClientNotProvided = errors.New("http client not provided")
 )
 
 // Options contains options for crawling
@@ -62,6 +63,10 @@ func newCrawler(opts Options) (*crawler, error) {
 	rootURL, err := weburl.Parse(opts.URL)
 	if err != nil {
 		return nil, fmt.Errorf("%w '%s': %w", ErrInvalidRootURL, opts.URL, err)
+	}
+
+	if opts.HTTPClient == nil {
+		return nil, ErrHTTPClientNotProvided
 	}
 
 	client := opts.HTTPClient
