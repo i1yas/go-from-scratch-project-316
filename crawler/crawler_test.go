@@ -3,10 +3,13 @@ package crawler
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,7 +26,7 @@ func TestAnalyze(t *testing.T) {
 		want := reportDTO{
 			RootURL: url,
 			Depth:   1,
-			Pages: []pageReport{
+			Pages: []pageReportDTO{
 				{
 					URL:        url,
 					Depth:      0,
@@ -42,14 +45,7 @@ func TestAnalyze(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		var got reportDTO
-
-		err = json.Unmarshal(gotRaw, &got)
-		require.NoError(t, err)
-
-		require.Equal(t, want.RootURL, got.RootURL)
-		require.Equal(t, want.Depth, got.Depth)
-		require.Equal(t, want.Pages, got.Pages)
+		requireReportEquals(t, want, gotRaw)
 	})
 
 	t.Run("network error", func(t *testing.T) {
@@ -75,6 +71,13 @@ func TestAnalyze(t *testing.T) {
 		want := reportDTO{
 			RootURL: url,
 			Depth:   1,
+			Pages: []pageReportDTO{
+				{
+					URL:   url,
+					Depth: 0,
+					Error: io.EOF.Error(),
+				},
+			},
 		}
 
 		gotRaw, err := Analyze(t.Context(), Options{
@@ -85,15 +88,7 @@ func TestAnalyze(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		var got reportDTO
-
-		err = json.Unmarshal(gotRaw, &got)
-		require.NoError(t, err)
-
-		require.Equal(t, want.RootURL, got.RootURL)
-		require.Equal(t, want.Depth, got.Depth)
-		require.Equal(t, 1, len(got.Pages))
-		require.Contains(t, got.Pages[0].Error, "EOF")
+		requireReportEquals(t, want, gotRaw)
 	})
 
 	t.Run("error on canceled context", func(t *testing.T) {
@@ -131,4 +126,38 @@ func TestAnalyze_InvalidOptions(t *testing.T) {
 		})
 		require.ErrorIs(t, err, ErrHTTPClientNotProvided)
 	})
+}
+
+func requireReportEquals(t *testing.T, want reportDTO, gotRaw []byte) {
+	t.Helper()
+
+	var got reportDTO
+
+	err := json.Unmarshal(gotRaw, &got)
+	require.NoError(t, err)
+
+	require.Equal(t, want.RootURL, got.RootURL)
+	require.Equal(t, want.Depth, got.Depth)
+	requireTimeIsValid(t, got.GeneratedAt)
+
+	require.Equal(t, len(want.Pages), len(got.Pages))
+	for i := range want.Pages {
+		wantPage := want.Pages[i]
+		gotPage := got.Pages[i]
+
+		assert.Equal(t, wantPage.URL, gotPage.URL)
+		assert.Equal(t, wantPage.Depth, gotPage.Depth)
+		assert.Contains(t, gotPage.Error, wantPage.Error)
+		assert.Equal(t, wantPage.HTTPStatus, gotPage.HTTPStatus)
+		assert.Equal(t, wantPage.Status, gotPage.Status)
+
+		requireTimeIsValid(t, gotPage.DiscoveredAt)
+	}
+}
+
+func requireTimeIsValid(t *testing.T, value string) {
+	t.Helper()
+
+	_, err := time.Parse(time.RFC3339, value)
+	require.NoError(t, err)
 }

@@ -3,7 +3,6 @@ package crawler
 import (
 	"code/internal/weburl"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -90,8 +89,9 @@ func (crw *crawler) fetch(ctx context.Context, pageURL string) ([]pageReport, er
 	}
 
 	page := pageReport{
-		URL:   pageURL,
-		Depth: 0,
+		URL:          pageURL,
+		Depth:        0,
+		DiscoveredAt: time.Now(),
 	}
 
 	resp, err := crw.client.Do(req)
@@ -117,19 +117,13 @@ type report struct {
 	Pages       []pageReport
 }
 
-type reportDTO struct {
-	RootURL     string       `json:"root_url"`
-	Depth       int          `json:"depth"`
-	GeneratedAt string       `json:"generated_at"`
-	Pages       []pageReport `json:"pages"`
-}
-
 type pageReport struct {
-	URL        string `json:"url"`
-	Depth      int    `json:"depth"`
-	HTTPStatus int    `json:"http_status"`
-	Status     string `json:"status"`
-	Error      string `json:"error"`
+	URL          string
+	Depth        int
+	HTTPStatus   int
+	Status       string
+	Error        string
+	DiscoveredAt time.Time
 }
 
 func statusText(resp *http.Response) string {
@@ -140,20 +134,4 @@ func statusText(resp *http.Response) string {
 	}
 
 	return ""
-}
-
-func formatReport(report report) ([]byte, error) {
-	reportDTO := reportDTO{
-		RootURL:     report.RootURL,
-		Depth:       report.Depth,
-		GeneratedAt: report.GeneratedAt.UTC().Format(time.RFC3339),
-		Pages:       report.Pages,
-	}
-
-	reportJSON, err := json.MarshalIndent(reportDTO, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-
-	return reportJSON, nil
 }
