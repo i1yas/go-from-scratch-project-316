@@ -15,170 +15,168 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAnalyze(t *testing.T) {
-	t.Run("page without links", func(t *testing.T) {
-		pageContent := loadFixture(t, "page-without-links.html")
-		url := "http://test.com"
+func TestAnalyze_PageWithoutLinks(t *testing.T) {
+	pageContent := loadFixture(t, "page-without-links.html")
+	url := "http://test.com"
 
-		server := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Host == "test.com" && r.URL.String() == "/" {
-				w.WriteHeader(http.StatusOK)
-				w.Header().Set("Content-Type", "text/html")
-				w.Write(pageContent)
+	server := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Host == "test.com" && r.URL.String() == "/" {
+			w.WriteHeader(http.StatusOK)
+			w.Header().Set("Content-Type", "text/html")
+			w.Write(pageContent)
 
-				return
-			}
+			return
+		}
 
+		w.WriteHeader(http.StatusNotFound)
+	}))
+
+	client := server.Client()
+
+	want := reportDTO{
+		RootURL: url,
+		Depth:   1,
+		Pages: []pageReportDTO{
+			{
+				URL:        url,
+				Depth:      0,
+				HTTPStatus: 200,
+				Status:     "ok",
+				Error:      "",
+			},
+		},
+	}
+
+	gotRaw, err := Analyze(t.Context(), Options{
+		URL:        url,
+		Depth:      1,
+		UserAgent:  "test",
+		HTTPClient: client,
+	})
+	require.NoError(t, err)
+
+	requireReportEquals(t, want, gotRaw)
+}
+
+func TestAnalyze_PageWithLinks(t *testing.T) {
+	pageContent := loadFixture(t, "page-with-links.html")
+	url := "http://test.com"
+
+	server := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Host != "test.com" {
 			w.WriteHeader(http.StatusNotFound)
-		}))
-
-		client := server.Client()
-
-		want := reportDTO{
-			RootURL: url,
-			Depth:   1,
-			Pages: []pageReportDTO{
-				{
-					URL:        url,
-					Depth:      0,
-					HTTPStatus: 200,
-					Status:     "ok",
-					Error:      "",
-				},
-			},
+			return
 		}
 
-		gotRaw, err := Analyze(t.Context(), Options{
-			URL:        url,
-			Depth:      1,
-			UserAgent:  "test",
-			HTTPClient: client,
-		})
-		require.NoError(t, err)
+		if r.URL.String() == "/" {
+			w.WriteHeader(http.StatusOK)
+			w.Header().Set("Content-Type", "text/html")
+			w.Write(pageContent)
 
-		requireReportEquals(t, want, gotRaw)
-	})
+			return
+		}
 
-	t.Run("page with links", func(t *testing.T) {
-		pageContent := loadFixture(t, "page-with-links.html")
-		url := "http://test.com"
+		if r.URL.String() == "/working" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 
-		server := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Host != "test.com" {
-				w.WriteHeader(http.StatusNotFound)
-				return
-			}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
 
-			if r.URL.String() == "/" {
-				w.WriteHeader(http.StatusOK)
-				w.Header().Set("Content-Type", "text/html")
-				w.Write(pageContent)
+	client := server.Client()
 
-				return
-			}
-
-			if r.URL.String() == "/working" {
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-
-			w.WriteHeader(http.StatusInternalServerError)
-		}))
-
-		client := server.Client()
-
-		want := reportDTO{
-			RootURL: url,
-			Depth:   1,
-			Pages: []pageReportDTO{
-				{
-					URL:        url,
-					Depth:      0,
-					HTTPStatus: 200,
-					Status:     "ok",
-					BrokenLinks: []brokenLinkDTO{
-						{
-							URL:        "http://test.com/link",
-							StatusCode: 500,
-						},
-						{
-							URL:        "https://example.com/page?param=value",
-							StatusCode: 404,
-						},
+	want := reportDTO{
+		RootURL: url,
+		Depth:   1,
+		Pages: []pageReportDTO{
+			{
+				URL:        url,
+				Depth:      0,
+				HTTPStatus: 200,
+				Status:     "ok",
+				BrokenLinks: []brokenLinkDTO{
+					{
+						URL:        "http://test.com/link",
+						StatusCode: 500,
 					},
-					Error: "",
+					{
+						URL:        "https://example.com/page?param=value",
+						StatusCode: 404,
+					},
 				},
+				Error: "",
 			},
+		},
+	}
+
+	gotRaw, err := Analyze(t.Context(), Options{
+		URL:        url,
+		Depth:      1,
+		UserAgent:  "test",
+		HTTPClient: client,
+	})
+	require.NoError(t, err)
+
+	requireReportEquals(t, want, gotRaw)
+}
+
+func TestAnalyze_NetworkError(t *testing.T) {
+	server := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hj, ok := w.(http.Hijacker)
+		if !ok {
+			t.Fatal("hijacking not supported")
 		}
 
-		gotRaw, err := Analyze(t.Context(), Options{
-			URL:        url,
-			Depth:      1,
-			UserAgent:  "test",
-			HTTPClient: client,
-		})
-		require.NoError(t, err)
-
-		requireReportEquals(t, want, gotRaw)
-	})
-
-	t.Run("network error", func(t *testing.T) {
-		server := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			hj, ok := w.(http.Hijacker)
-			if !ok {
-				t.Fatal("hijacking not supported")
-			}
-
-			conn, _, err := hj.Hijack()
-			if err != nil {
-				t.Error(err)
-				return
-			}
-
-			require.NoError(t, conn.Close())
-		}))
-
-		client := server.Client()
-
-		url := "http://test.com"
-
-		want := reportDTO{
-			RootURL: url,
-			Depth:   1,
-			Pages: []pageReportDTO{
-				{
-					URL:   url,
-					Depth: 0,
-					Error: io.EOF.Error(),
-				},
-			},
+		conn, _, err := hj.Hijack()
+		if err != nil {
+			t.Error(err)
+			return
 		}
 
-		gotRaw, err := Analyze(t.Context(), Options{
-			URL:        url,
-			Depth:      1,
-			UserAgent:  "test",
-			HTTPClient: client,
-		})
-		require.NoError(t, err)
+		require.NoError(t, conn.Close())
+	}))
 
-		requireReportEquals(t, want, gotRaw)
+	client := server.Client()
+
+	url := "http://test.com"
+
+	want := reportDTO{
+		RootURL: url,
+		Depth:   1,
+		Pages: []pageReportDTO{
+			{
+				URL:   url,
+				Depth: 0,
+				Error: io.EOF.Error(),
+			},
+		},
+	}
+
+	gotRaw, err := Analyze(t.Context(), Options{
+		URL:        url,
+		Depth:      1,
+		UserAgent:  "test",
+		HTTPClient: client,
 	})
+	require.NoError(t, err)
 
-	t.Run("error on canceled context", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(t.Context())
-		cancel()
+	requireReportEquals(t, want, gotRaw)
+}
 
-		server := httptest.NewTestServer(
-			t, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}),
-		)
+func TestAnalyze_ErrorOnCanceledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
 
-		_, err := Analyze(ctx, Options{
-			URL:        "http://test.com",
-			HTTPClient: server.Client(),
-		})
-		require.ErrorIs(t, err, context.Canceled)
+	server := httptest.NewTestServer(
+		t, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}),
+	)
+
+	_, err := Analyze(ctx, Options{
+		URL:        "http://test.com",
+		HTTPClient: server.Client(),
 	})
+	require.ErrorIs(t, err, context.Canceled)
 }
 
 func TestAnalyze_InvalidOptions(t *testing.T) {
