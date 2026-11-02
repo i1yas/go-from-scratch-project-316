@@ -19,17 +19,12 @@ func TestAnalyze_PageWithoutLinks(t *testing.T) {
 	pageContent := loadFixture(t, "page-without-links.html")
 	url := "http://test.com"
 
-	server := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Host == "test.com" && r.URL.String() == "/" {
-			w.WriteHeader(http.StatusOK)
-			w.Header().Set("Content-Type", "text/html")
-			w.Write(pageContent)
-
-			return
-		}
-
-		w.WriteHeader(http.StatusNotFound)
-	}))
+	server := setupTestServer(t, "test.com",
+		map[string]testServerResponse{
+			"/": {status: 200, body: pageContent},
+		},
+		nil,
+	)
 
 	client := server.Client()
 
@@ -62,27 +57,14 @@ func TestAnalyze_PageWithLinks(t *testing.T) {
 	pageContent := loadFixture(t, "page-with-links.html")
 	url := "http://test.com"
 
-	server := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Host != "test.com" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-
-		if r.URL.String() == "/" {
-			w.WriteHeader(http.StatusOK)
-			w.Header().Set("Content-Type", "text/html")
-			w.Write(pageContent)
-
-			return
-		}
-
-		if r.URL.String() == "/working" {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
+	server := setupTestServer(t, "test.com",
+		map[string]testServerResponse{
+			"/":        {status: 200, body: pageContent},
+			"/working": {status: 200},
+			"/link":    {status: 500},
+		},
+		nil,
+	)
 
 	client := server.Client()
 
@@ -246,4 +228,44 @@ func loadFixture(t *testing.T, name string) []byte {
 	require.NoError(t, err)
 
 	return data
+}
+
+type testServerResponse struct {
+	status int
+	body   []byte
+}
+
+func setupTestServer(
+	t *testing.T,
+	host string,
+	internalLinksMapper map[string]testServerResponse,
+	foreignLinksMapper map[string]testServerResponse,
+) *httptest.Server {
+	server := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Host != host {
+			respConf, ok := foreignLinksMapper[r.RequestURI]
+			if !ok {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+
+			w.WriteHeader(respConf.status)
+			_, err := w.Write(respConf.body)
+			require.NoError(t, err)
+
+			return
+		}
+
+		respConf, ok := internalLinksMapper[r.RequestURI]
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		w.WriteHeader(respConf.status)
+		_, err := w.Write(respConf.body)
+		require.NoError(t, err)
+	}))
+
+	return server
 }
