@@ -1,7 +1,6 @@
 package crawler
 
 import (
-	"code/internal/weburl"
 	"context"
 	"errors"
 	"fmt"
@@ -10,6 +9,9 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"code/internal/htmlparser"
+	"code/internal/weburl"
 )
 
 var (
@@ -100,14 +102,60 @@ func (crw *crawler) fetch(ctx context.Context, pageURL string) ([]pageReport, er
 		return nil, err
 	}
 
+	pages := []pageReport{}
+
 	if err != nil {
 		page.Error = err.Error()
 	} else {
 		page.HTTPStatus = resp.StatusCode
 		page.Status = statusText(resp)
+
+		respContentType := resp.Header.Get("Content-Type")
+		isHTML := strings.HasPrefix(respContentType, "text/html")
+
+		if isHTML {
+			links, err := htmlparser.ExtractLinks(resp.Body)
+			if err == nil {
+				for _, l := range links {
+					parsedURL, err := url.Parse(l)
+					if err != nil {
+						page.BrokenLinks = append(page.BrokenLinks, brokenLink{
+							url: l,
+							err: err,
+						})
+
+						continue
+					}
+
+					if parsedURL.Host == "" {
+						parsedURL.Host = crw.rootURL.Host
+						parsedURL.Scheme = crw.rootURL.Scheme
+					}
+
+					resp, err := crw.client.Get(parsedURL.String())
+					if err != nil {
+						page.BrokenLinks = append(page.BrokenLinks, brokenLink{
+							url: parsedURL.String(),
+							err: err,
+						})
+
+						continue
+					}
+
+					if resp.StatusCode >= 400 {
+						page.BrokenLinks = append(page.BrokenLinks, brokenLink{
+							url:        parsedURL.String(),
+							statusCode: resp.StatusCode,
+						})
+					}
+				}
+			}
+		}
 	}
 
-	return []pageReport{page}, nil
+	pages = append(pages, page)
+
+	return pages, nil
 }
 
 type report struct {
@@ -123,7 +171,14 @@ type pageReport struct {
 	HTTPStatus   int
 	Status       string
 	Error        string
+	BrokenLinks  []brokenLink
 	DiscoveredAt time.Time
+}
+
+type brokenLink struct {
+	url        string
+	statusCode int
+	err        error
 }
 
 func statusText(resp *http.Response) string {

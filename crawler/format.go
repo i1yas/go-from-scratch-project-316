@@ -13,12 +13,19 @@ type reportDTO struct {
 }
 
 type pageReportDTO struct {
-	URL          string `json:"url"`
-	Depth        int    `json:"depth"`
-	HTTPStatus   int    `json:"http_status"`
-	Status       string `json:"status"`
-	Error        string `json:"error"`
-	DiscoveredAt string `json:"discovered_at"`
+	URL          string          `json:"url"`
+	Depth        int             `json:"depth"`
+	HTTPStatus   int             `json:"http_status"`
+	Status       string          `json:"status"`
+	Error        string          `json:"error"`
+	BrokenLinks  []brokenLinkDTO `json:"broken_links"`
+	DiscoveredAt string          `json:"discovered_at"`
+}
+
+type brokenLinkDTO struct {
+	URL        string `json:"url"`
+	StatusCode int    `json:"status_code,omitempty"`
+	Err        string `json:"error,omitempty"`
 }
 
 func formatReport(report report) ([]byte, error) {
@@ -44,13 +51,33 @@ func formatReport(report report) ([]byte, error) {
 }
 
 func toPageReportDTO(page pageReport) pageReportDTO {
+	brokenLinks := make([]brokenLinkDTO, len(page.BrokenLinks))
+
+	for i, bl := range page.BrokenLinks {
+		brokenLinks[i] = toBrokenLinkDTO(bl)
+	}
+
 	return pageReportDTO{
 		URL:          page.URL,
 		Depth:        page.Depth,
 		HTTPStatus:   page.HTTPStatus,
 		Status:       page.Status,
 		Error:        page.Error,
+		BrokenLinks:  brokenLinks,
 		DiscoveredAt: formatTime(page.DiscoveredAt),
+	}
+}
+
+func toBrokenLinkDTO(bl brokenLink) brokenLinkDTO {
+	err := ""
+	if bl.err != nil {
+		err = bl.err.Error()
+	}
+
+	return brokenLinkDTO{
+		URL:        bl.url,
+		StatusCode: bl.statusCode,
+		Err:        err,
 	}
 }
 

@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -14,14 +16,23 @@ import (
 )
 
 func TestAnalyze(t *testing.T) {
-	t.Run("successful request", func(t *testing.T) {
-		server := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusOK)
+	t.Run("page without links", func(t *testing.T) {
+		pageContent := loadFixture(t, "page-without-links.html")
+		url := "http://test.com"
+
+		server := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Host == "test.com" && r.URL.String() == "/" {
+				w.WriteHeader(http.StatusOK)
+				w.Header().Set("Content-Type", "text/html")
+				w.Write(pageContent)
+
+				return
+			}
+
+			w.WriteHeader(http.StatusNotFound)
 		}))
 
 		client := server.Client()
-
-		url := "http://test.com"
 
 		want := reportDTO{
 			RootURL: url,
@@ -33,6 +44,69 @@ func TestAnalyze(t *testing.T) {
 					HTTPStatus: 200,
 					Status:     "ok",
 					Error:      "",
+				},
+			},
+		}
+
+		gotRaw, err := Analyze(t.Context(), Options{
+			URL:        url,
+			Depth:      1,
+			UserAgent:  "test",
+			HTTPClient: client,
+		})
+		require.NoError(t, err)
+
+		requireReportEquals(t, want, gotRaw)
+	})
+
+	t.Run("page with links", func(t *testing.T) {
+		pageContent := loadFixture(t, "page-with-links.html")
+		url := "http://test.com"
+
+		server := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Host != "test.com" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+
+			if r.URL.String() == "/" {
+				w.WriteHeader(http.StatusOK)
+				w.Header().Set("Content-Type", "text/html")
+				w.Write(pageContent)
+
+				return
+			}
+
+			if r.URL.String() == "/working" {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+
+		client := server.Client()
+
+		want := reportDTO{
+			RootURL: url,
+			Depth:   1,
+			Pages: []pageReportDTO{
+				{
+					URL:        url,
+					Depth:      0,
+					HTTPStatus: 200,
+					Status:     "ok",
+					BrokenLinks: []brokenLinkDTO{
+						{
+							URL:        "http://test.com/link",
+							StatusCode: 500,
+						},
+						{
+							URL:        "https://example.com/page?param=value",
+							StatusCode: 404,
+						},
+					},
+					Error: "",
 				},
 			},
 		}
@@ -141,6 +215,7 @@ func requireReportEquals(t *testing.T, want reportDTO, gotRaw []byte) {
 	requireTimeIsValid(t, got.GeneratedAt)
 
 	require.Equal(t, len(want.Pages), len(got.Pages))
+
 	for i := range want.Pages {
 		wantPage := want.Pages[i]
 		gotPage := got.Pages[i]
@@ -151,6 +226,8 @@ func requireReportEquals(t *testing.T, want reportDTO, gotRaw []byte) {
 		assert.Equal(t, wantPage.HTTPStatus, gotPage.HTTPStatus)
 		assert.Equal(t, wantPage.Status, gotPage.Status)
 
+		require.ElementsMatch(t, wantPage.BrokenLinks, gotPage.BrokenLinks)
+
 		requireTimeIsValid(t, gotPage.DiscoveredAt)
 	}
 }
@@ -160,4 +237,15 @@ func requireTimeIsValid(t *testing.T, value string) {
 
 	_, err := time.Parse(time.RFC3339, value)
 	require.NoError(t, err)
+}
+
+func loadFixture(t *testing.T, name string) []byte {
+	t.Helper()
+
+	path := filepath.Join("testdata", "fixture", name)
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+
+	return data
 }
