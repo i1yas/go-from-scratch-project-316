@@ -61,7 +61,7 @@ func TestAnalyze_PageWithLinks(t *testing.T) {
 		map[string]testServerResponse{
 			"/":        {status: 200, body: pageContent},
 			"/working": {status: 200},
-			"/link":    {status: 500},
+			"/broken":  {status: 500},
 		},
 		nil,
 	)
@@ -79,7 +79,7 @@ func TestAnalyze_PageWithLinks(t *testing.T) {
 				Status:     "ok",
 				BrokenLinks: []brokenLinkDTO{
 					{
-						URL:        "http://test.com/link",
+						URL:        "http://test.com/broken",
 						StatusCode: 500,
 					},
 					{
