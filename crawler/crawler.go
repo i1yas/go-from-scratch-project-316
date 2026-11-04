@@ -119,11 +119,10 @@ func (crw *crawler) fetch(ctx context.Context, pageURL string) ([]pageReport, er
 				for _, l := range links {
 					parsedURL, err := url.Parse(l)
 					if err != nil {
-						page.BrokenLinks = append(page.BrokenLinks, brokenLink{
-							url: l,
-							err: err,
-						})
+						continue
+					}
 
+					if parsedURL.Host == "" && parsedURL.Path == "" {
 						continue
 					}
 
