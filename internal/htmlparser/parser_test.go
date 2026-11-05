@@ -2,6 +2,7 @@ package htmlparser
 
 import (
 	"bytes"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -17,19 +18,23 @@ func TestExtractLinks_PageWithLinks(t *testing.T) {
 	doc, err := goquery.NewDocumentFromReader(pageContentReader)
 	require.NoError(t, err)
 
-	gotLinks, err := ExtractLinks(doc)
+	gotLinks, err := ExtractLinks(doc, docURL(t))
 	require.NoError(t, err)
 
 	wantLinks := []string{
-		"/link",
-		"/item-1",
-		"/item-2",
-		"/image",
-		"/banner",
+		"http://test.com/link",
+		"http://test.com/inner-page/relative-with-dot",
+		"http://test.com/inner-page/relative-no-dot",
+		"http://test.com/relative-5-dir-up",
+		"http://test.com/item-1",
+		"http://test.com/item-2",
+		"http://test.com/image",
+		"http://test.com/banner",
 		"https://example.com/page?param=value",
+		"http://example.com/page?param=value",
 	}
 
-	require.ElementsMatch(t, wantLinks, gotLinks)
+	require.ElementsMatch(t, wantLinks, urlsAsStrings(t, gotLinks))
 }
 
 func TestExtractLinks_PageWithoutLinks(t *testing.T) {
@@ -39,7 +44,7 @@ func TestExtractLinks_PageWithoutLinks(t *testing.T) {
 	doc, err := goquery.NewDocumentFromReader(pageContentReader)
 	require.NoError(t, err)
 
-	gotLinks, err := ExtractLinks(doc)
+	gotLinks, err := ExtractLinks(doc, docURL(t))
 	require.NoError(t, err)
 
 	require.Equal(t, 0, len(gotLinks))
@@ -52,7 +57,7 @@ func TestExtractLinks_InvalidHTML(t *testing.T) {
 	doc, err := goquery.NewDocumentFromReader(pageContentReader)
 	require.NoError(t, err)
 
-	gotLinks, err := ExtractLinks(doc)
+	gotLinks, err := ExtractLinks(doc, docURL(t))
 	require.NoError(t, err)
 
 	require.Equal(t, 0, len(gotLinks))
@@ -67,4 +72,25 @@ func loadFixture(t *testing.T, name string) []byte {
 	require.NoError(t, err)
 
 	return data
+}
+
+func docURL(t *testing.T) *url.URL {
+	t.Helper()
+
+	u, err := url.Parse("http://test.com/inner-page")
+	require.NoError(t, err)
+
+	return u
+}
+
+func urlsAsStrings(t *testing.T, urls []*url.URL) []string {
+	t.Helper()
+
+	result := make([]string, len(urls))
+
+	for i, u := range urls {
+		result[i] = u.String()
+	}
+
+	return result
 }

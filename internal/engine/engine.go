@@ -129,32 +129,18 @@ func (e *Engine) processDocument(rawDocument io.Reader, page *PageReport) {
 		return
 	}
 
-	links, err := htmlparser.ExtractLinks(doc)
+	links, err := htmlparser.ExtractLinks(doc, e.rootURL)
 	if err != nil {
 		return
 	}
 
 	page.SEO = htmlparser.AnalyzeSEO(doc)
 
-	for _, l := range links {
-		parsedURL, err := url.Parse(l)
-		if err != nil {
-			continue
-		}
-
-		if parsedURL.Host == "" && parsedURL.Path == "" {
-			continue
-		}
-
-		if parsedURL.Host == "" {
-			parsedURL.Host = e.rootURL.Host
-			parsedURL.Scheme = e.rootURL.Scheme
-		}
-
-		resp, err := e.client.Get(parsedURL.String())
+	for _, link := range links {
+		resp, err := e.client.Get(link.String())
 		if err != nil {
 			page.BrokenLinks = append(page.BrokenLinks, BrokenLink{
-				URL: parsedURL.String(),
+				URL: link.String(),
 				Err: err,
 			})
 
@@ -163,7 +149,7 @@ func (e *Engine) processDocument(rawDocument io.Reader, page *PageReport) {
 
 		if resp.StatusCode >= 400 {
 			page.BrokenLinks = append(page.BrokenLinks, BrokenLink{
-				URL:        parsedURL.String(),
+				URL:        link.String(),
 				StatusCode: resp.StatusCode,
 			})
 		}

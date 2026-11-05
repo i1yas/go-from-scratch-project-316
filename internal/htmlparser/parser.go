@@ -1,17 +1,20 @@
 package htmlparser
 
 import (
+	"net/url"
+	"strings"
+
 	"github.com/PuerkitoBio/goquery"
 	"golang.org/x/net/html"
 )
 
 // ExtractLinks extracts links from html document
-func ExtractLinks(doc *goquery.Document) ([]string, error) {
-	var links []string
+func ExtractLinks(doc *goquery.Document, docURL *url.URL) ([]*url.URL, error) {
+	var links []*url.URL
 
 	doc.Each(func(i int, s *goquery.Selection) {
 		node := s.Nodes[i]
-		links = append(links, extractLinksFromNode(node)...)
+		links = append(links, extractLinksFromNode(node, docURL)...)
 	})
 
 	return links, nil
@@ -56,7 +59,77 @@ func AnalyzeSEO(doc *goquery.Document) SEO {
 	return seo
 }
 
-func extractLinkFromNode(node *html.Node) (string, bool) {
+func extractLinksFromNode(node *html.Node, docURL *url.URL) []*url.URL {
+	var links []*url.URL
+
+	link, ok := extractLinkFromNode(node, docURL)
+	if ok {
+		links = append(links, link)
+	}
+
+	for c := node.FirstChild; c != nil; c = c.NextSibling {
+		links = append(links, extractLinksFromNode(c, docURL)...)
+	}
+
+	return links
+}
+
+func extractLinkFromNode(node *html.Node, docURL *url.URL) (*url.URL, bool) {
+	rawLink, ok := extractRawLinkFromNode(node)
+	if !ok {
+		return nil, false
+	}
+
+	link, ok := parseLink(rawLink, docURL)
+	if !ok {
+		return nil, false
+	}
+
+	return link, true
+}
+
+func parseLink(rawLink string, docURL *url.URL) (*url.URL, bool) {
+	parsedURL, err := url.Parse(rawLink)
+	if err != nil {
+		return nil, false
+	}
+
+	if strings.HasPrefix(rawLink, "//") {
+		parsedURL.Scheme = docURL.Scheme
+	}
+
+	if parsedURL.Host == "" && parsedURL.Path == "" {
+		return nil, false
+	}
+
+	if parsedURL.Scheme == "" && parsedURL.Host == "" {
+		path, ok := joinPath(parsedURL, docURL)
+		if !ok {
+			return nil, false
+		}
+
+		parsedURL.Scheme = docURL.Scheme
+		parsedURL.Host = docURL.Host
+		parsedURL.Path = path
+	}
+
+	return parsedURL, true
+}
+
+func joinPath(link, docURL *url.URL) (string, bool) {
+	if strings.HasPrefix(link.Path, "/") {
+		return link.Path, true
+	}
+
+	path, err := url.JoinPath(docURL.Path, link.Path)
+	if err != nil {
+		return "", false
+	}
+
+	return path, true
+}
+
+func extractRawLinkFromNode(node *html.Node) (string, bool) {
 	switch node.Data {
 	case "a":
 		return attr(node, "href")
@@ -70,21 +143,6 @@ func extractLinkFromNode(node *html.Node) (string, bool) {
 	}
 
 	return "", false
-}
-
-func extractLinksFromNode(node *html.Node) []string {
-	var links []string
-
-	link, ok := extractLinkFromNode(node)
-	if ok {
-		links = append(links, link)
-	}
-
-	for c := node.FirstChild; c != nil; c = c.NextSibling {
-		links = append(links, extractLinksFromNode(c)...)
-	}
-
-	return links
 }
 
 func linkFromLinkTag(node *html.Node) (string, bool) {
