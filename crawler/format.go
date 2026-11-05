@@ -3,6 +3,8 @@ package crawler
 import (
 	"encoding/json"
 	"time"
+
+	"code/internal/engine"
 )
 
 type reportDTO struct {
@@ -37,7 +39,7 @@ type brokenLinkDTO struct {
 	Err        string `json:"error,omitempty"`
 }
 
-func formatReport(report report) ([]byte, error) {
+func formatReport(report engine.Report) ([]byte, error) {
 	pages := make([]pageReportDTO, len(report.Pages))
 
 	for i, page := range report.Pages {
@@ -59,7 +61,7 @@ func formatReport(report report) ([]byte, error) {
 	return reportJSON, nil
 }
 
-func toPageReportDTO(page pageReport) pageReportDTO {
+func toPageReportDTO(page engine.PageReport) pageReportDTO {
 	brokenLinks := make([]brokenLinkDTO, len(page.BrokenLinks))
 
 	for i, bl := range page.BrokenLinks {
@@ -86,15 +88,15 @@ func toPageReportDTO(page pageReport) pageReportDTO {
 	}
 }
 
-func toBrokenLinkDTO(bl brokenLink) brokenLinkDTO {
+func toBrokenLinkDTO(bl engine.BrokenLink) brokenLinkDTO {
 	err := ""
-	if bl.err != nil {
-		err = bl.err.Error()
+	if bl.Err != nil {
+		err = bl.Err.Error()
 	}
 
 	return brokenLinkDTO{
-		URL:        bl.url,
-		StatusCode: bl.statusCode,
+		URL:        bl.URL,
+		StatusCode: bl.StatusCode,
 		Err:        err,
 	}
 }
