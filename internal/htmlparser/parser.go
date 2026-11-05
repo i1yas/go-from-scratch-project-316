@@ -1,48 +1,44 @@
 package htmlparser
 
 import (
-	"io"
-
+	"github.com/PuerkitoBio/goquery"
 	"golang.org/x/net/html"
 )
 
 // ExtractLinks extracts links from html document
-func ExtractLinks(r io.Reader) ([]string, error) {
-	doc, err := html.Parse(r)
-	if err != nil {
-		return nil, err
-	}
+func ExtractLinks(doc *goquery.Document) ([]string, error) {
+	var links []string
 
-	links := extractLinksFromNode(doc)
+	doc.Each(func(i int, s *goquery.Selection) {
+		node := s.Nodes[i]
+		links = append(links, extractLinksFromNode(node)...)
+	})
 
 	return links, nil
+}
+
+func extractLinkFromNode(node *html.Node) (string, bool) {
+	switch node.Data {
+	case "a":
+		return attr(node, "href")
+	case "link":
+		return linkFromLinkTag(node)
+	case "script":
+		return attr(node, "src")
+	case "img":
+		return attr(node, "src")
+		// TODO: video, audio, source, etc
+	}
+
+	return "", false
 }
 
 func extractLinksFromNode(node *html.Node) []string {
 	var links []string
 
-	switch node.Data {
-	case "a":
-		href, ok := attr(node, "href")
-		if ok {
-			links = append(links, href)
-		}
-	case "link":
-		l, ok := linkFromLinkTag(node)
-		if ok {
-			links = append(links, l)
-		}
-	case "script":
-		src, ok := attr(node, "src")
-		if ok {
-			links = append(links, src)
-		}
-	case "img":
-		src, ok := attr(node, "src")
-		if ok {
-			links = append(links, src)
-		}
-		// TODO: video, audio, source, etc
+	link, ok := extractLinkFromNode(node)
+	if ok {
+		links = append(links, link)
 	}
 
 	for c := node.FirstChild; c != nil; c = c.NextSibling {

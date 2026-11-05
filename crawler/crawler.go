@@ -114,6 +114,25 @@ func (crw *crawler) fetch(ctx context.Context, pageURL string) ([]pageReport, er
 		isHTML := strings.HasPrefix(respContentType, "text/html")
 
 		if isHTML {
+			crw.processHTML(resp.Body, &page)
+		}
+	}
+
+	pages = append(pages, page)
+
+	return pages, nil
+}
+
+func (crw *crawler) processHTML(respBody io.Reader, page *pageReport) {
+	doc, err := goquery.NewDocumentFromReader(respBody)
+	if err != nil {
+		return
+	}
+
+	links, err := htmlparser.ExtractLinks(doc)
+	if err != nil {
+		return
+	}
 			links, err := htmlparser.ExtractLinks(resp.Body)
 			if err == nil {
 				for _, l := range links {
@@ -122,39 +141,38 @@ func (crw *crawler) fetch(ctx context.Context, pageURL string) ([]pageReport, er
 						continue
 					}
 
-					if parsedURL.Host == "" && parsedURL.Path == "" {
-						continue
-					}
+	for _, l := range links {
+		parsedURL, err := url.Parse(l)
+		if err != nil {
+			continue
+		}
 
-					if parsedURL.Host == "" {
-						parsedURL.Host = crw.rootURL.Host
-						parsedURL.Scheme = crw.rootURL.Scheme
-					}
+		if parsedURL.Host == "" && parsedURL.Path == "" {
+			continue
+		}
 
-					resp, err := crw.client.Get(parsedURL.String())
-					if err != nil {
-						page.BrokenLinks = append(page.BrokenLinks, brokenLink{
-							url: parsedURL.String(),
-							err: err,
-						})
+		if parsedURL.Host == "" {
+			parsedURL.Host = crw.rootURL.Host
+			parsedURL.Scheme = crw.rootURL.Scheme
+		}
 
-						continue
-					}
+		resp, err := crw.client.Get(parsedURL.String())
+		if err != nil {
+			page.BrokenLinks = append(page.BrokenLinks, brokenLink{
+				url: parsedURL.String(),
+				err: err,
+			})
 
-					if resp.StatusCode >= 400 {
-						page.BrokenLinks = append(page.BrokenLinks, brokenLink{
-							url:        parsedURL.String(),
-							statusCode: resp.StatusCode,
-						})
-					}
-				}
-			}
+			continue
+		}
+
+		if resp.StatusCode >= 400 {
+			page.BrokenLinks = append(page.BrokenLinks, brokenLink{
+				url:        parsedURL.String(),
+				statusCode: resp.StatusCode,
+			})
 		}
 	}
-
-	pages = append(pages, page)
-
-	return pages, nil
 }
 
 type report struct {
