@@ -15,46 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAnalyze_PageWithoutLinks(t *testing.T) {
-	pageContent := loadFixture(t, "page-without-links.html")
-	url := "http://test.com"
-
-	server := setupTestServer(t, "test.com",
-		map[string]testServerResponse{
-			"/": {status: 200, body: pageContent},
-		},
-		nil,
-	)
-
-	client := server.Client()
-
-	want := reportDTO{
-		RootURL: url,
-		Depth:   1,
-		Pages: []pageReportDTO{
-			{
-				URL:        url,
-				Depth:      0,
-				HTTPStatus: 200,
-				Status:     "ok",
-				Error:      "",
-			},
-		},
-	}
-
-	gotRaw, err := Analyze(t.Context(), Options{
-		URL:        url,
-		Depth:      1,
-		UserAgent:  "test",
-		HTTPClient: client,
-	})
-	require.NoError(t, err)
-
-	requireReportEquals(t, want, gotRaw)
-}
-
-func TestAnalyze_PageWithLinks(t *testing.T) {
-	pageContent := loadFixture(t, "page-with-links.html")
+func TestAnalyze_WellFormedPage(t *testing.T) {
+	pageContent := loadFixture(t, "well-formed-page.html")
 	url := "http://test.com"
 
 	server := setupTestServer(t, "test.com",
@@ -77,6 +39,13 @@ func TestAnalyze_PageWithLinks(t *testing.T) {
 				Depth:      0,
 				HTTPStatus: 200,
 				Status:     "ok",
+				SEO: pageSEODTO{
+					HasTitle:       true,
+					HasDescription: true,
+					HasH1:          true,
+					Title:          "Test title",
+					Description:    "test description",
+				},
 				BrokenLinks: []brokenLinkDTO{
 					{
 						URL:        "http://test.com/broken",
@@ -86,6 +55,48 @@ func TestAnalyze_PageWithLinks(t *testing.T) {
 						URL:        "https://example.com/page?param=value",
 						StatusCode: 404,
 					},
+				},
+				Error: "",
+			},
+		},
+	}
+
+	gotRaw, err := Analyze(t.Context(), Options{
+		URL:        url,
+		Depth:      1,
+		UserAgent:  "test",
+		HTTPClient: client,
+	})
+	require.NoError(t, err)
+
+	requireReportEquals(t, want, gotRaw)
+}
+
+func TestAnalyze_PageWithoutLinks(t *testing.T) {
+	pageContent := loadFixture(t, "page-without-links.html")
+	url := "http://test.com"
+
+	server := setupTestServer(t, "test.com",
+		map[string]testServerResponse{
+			"/": {status: 200, body: pageContent},
+		},
+		nil,
+	)
+
+	client := server.Client()
+
+	want := reportDTO{
+		RootURL: url,
+		Depth:   1,
+		Pages: []pageReportDTO{
+			{
+				URL:        url,
+				Depth:      0,
+				HTTPStatus: 200,
+				Status:     "ok",
+				SEO: pageSEODTO{
+					HasTitle: true,
+					Title:    "Document",
 				},
 				Error: "",
 			},
@@ -205,6 +216,7 @@ func requireReportEquals(t *testing.T, want reportDTO, gotRaw []byte) {
 		assert.Contains(t, gotPage.Error, wantPage.Error)
 		assert.Equal(t, wantPage.HTTPStatus, gotPage.HTTPStatus)
 		assert.Equal(t, wantPage.Status, gotPage.Status)
+		assert.Equal(t, wantPage.SEO, gotPage.SEO)
 
 		require.ElementsMatch(t, wantPage.BrokenLinks, gotPage.BrokenLinks)
 

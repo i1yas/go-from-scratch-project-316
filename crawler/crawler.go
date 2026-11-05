@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/PuerkitoBio/goquery"
 
 	"code/internal/htmlparser"
 	"code/internal/weburl"
@@ -133,13 +136,8 @@ func (crw *crawler) processHTML(respBody io.Reader, page *pageReport) {
 	if err != nil {
 		return
 	}
-			links, err := htmlparser.ExtractLinks(resp.Body)
-			if err == nil {
-				for _, l := range links {
-					parsedURL, err := url.Parse(l)
-					if err != nil {
-						continue
-					}
+
+	page.SEO = htmlparser.AnalyzeSEO(doc)
 
 	for _, l := range links {
 		parsedURL, err := url.Parse(l)
@@ -188,6 +186,7 @@ type pageReport struct {
 	HTTPStatus   int
 	Status       string
 	Error        string
+	SEO          htmlparser.SEO
 	BrokenLinks  []brokenLink
 	DiscoveredAt time.Time
 }

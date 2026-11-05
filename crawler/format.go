@@ -18,8 +18,17 @@ type pageReportDTO struct {
 	HTTPStatus   int             `json:"http_status"`
 	Status       string          `json:"status"`
 	Error        string          `json:"error"`
+	SEO          pageSEODTO      `json:"seo"`
 	BrokenLinks  []brokenLinkDTO `json:"broken_links"`
 	DiscoveredAt string          `json:"discovered_at"`
+}
+
+type pageSEODTO struct {
+	HasTitle       bool   `json:"has_title"`
+	HasDescription bool   `json:"has_description"`
+	HasH1          bool   `json:"has_h1"`
+	Title          string `json:"title"`
+	Description    string `json:"description"`
 }
 
 type brokenLinkDTO struct {
@@ -57,12 +66,21 @@ func toPageReportDTO(page pageReport) pageReportDTO {
 		brokenLinks[i] = toBrokenLinkDTO(bl)
 	}
 
+	seo := pageSEODTO{
+		HasTitle:       page.SEO.HasTitle,
+		HasDescription: page.SEO.HasDescription,
+		HasH1:          page.SEO.HasH1,
+		Title:          page.SEO.Title,
+		Description:    page.SEO.Description,
+	}
+
 	return pageReportDTO{
 		URL:          page.URL,
 		Depth:        page.Depth,
 		HTTPStatus:   page.HTTPStatus,
 		Status:       page.Status,
 		Error:        page.Error,
+		SEO:          seo,
 		BrokenLinks:  brokenLinks,
 		DiscoveredAt: formatTime(page.DiscoveredAt),
 	}

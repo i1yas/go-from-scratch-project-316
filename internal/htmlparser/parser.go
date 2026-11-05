@@ -17,6 +17,45 @@ func ExtractLinks(doc *goquery.Document) ([]string, error) {
 	return links, nil
 }
 
+// SEO contains document's SEO report
+type SEO struct {
+	HasTitle       bool
+	HasDescription bool
+	HasH1          bool
+	Title          string
+	Description    string
+}
+
+// AnalyzeSEO checks if document follows basic SEO recommendations
+func AnalyzeSEO(doc *goquery.Document) SEO {
+	seo := SEO{}
+
+	title := doc.
+		Find("html > head > title").
+		First().
+		Text()
+	if title != "" {
+		seo.HasTitle = true
+		seo.Title = title
+	}
+
+	desc, ok := doc.
+		Find(`html > head > meta[name="description"]`).
+		First().
+		Attr("content")
+	if ok {
+		seo.HasDescription = true
+		seo.Description = desc
+	}
+
+	hasH1 := doc.Find(`html > body > h1`).Length() > 0
+	if hasH1 {
+		seo.HasH1 = true
+	}
+
+	return seo
+}
+
 func extractLinkFromNode(node *html.Node) (string, bool) {
 	switch node.Data {
 	case "a":

@@ -2,11 +2,11 @@ package htmlparser
 
 import (
 	"bytes"
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,7 +14,10 @@ func TestExtractLinks_PageWithLinks(t *testing.T) {
 	pageContent := loadFixture(t, "page-with-links.html")
 	pageContentReader := bytes.NewReader(pageContent)
 
-	gotLinks, err := ExtractLinks(pageContentReader)
+	doc, err := goquery.NewDocumentFromReader(pageContentReader)
+	require.NoError(t, err)
+
+	gotLinks, err := ExtractLinks(doc)
 	require.NoError(t, err)
 
 	wantLinks := []string{
@@ -33,7 +36,10 @@ func TestExtractLinks_PageWithoutLinks(t *testing.T) {
 	pageContent := loadFixture(t, "page-without-links.html")
 	pageContentReader := bytes.NewReader(pageContent)
 
-	gotLinks, err := ExtractLinks(pageContentReader)
+	doc, err := goquery.NewDocumentFromReader(pageContentReader)
+	require.NoError(t, err)
+
+	gotLinks, err := ExtractLinks(doc)
 	require.NoError(t, err)
 
 	require.Equal(t, 0, len(gotLinks))
@@ -43,18 +49,13 @@ func TestExtractLinks_InvalidHTML(t *testing.T) {
 	pageContent := loadFixture(t, "not-html.txt")
 	pageContentReader := bytes.NewReader(pageContent)
 
-	gotLinks, err := ExtractLinks(pageContentReader)
+	doc, err := goquery.NewDocumentFromReader(pageContentReader)
+	require.NoError(t, err)
+
+	gotLinks, err := ExtractLinks(doc)
 	require.NoError(t, err)
 
 	require.Equal(t, 0, len(gotLinks))
-}
-
-func TestExtractLinks_Error(t *testing.T) {
-	wantErr := errors.New("broken")
-	pageContentReader := &brokenReader{wantErr}
-
-	_, err := ExtractLinks(pageContentReader)
-	require.ErrorIs(t, err, wantErr)
 }
 
 func loadFixture(t *testing.T, name string) []byte {
@@ -66,12 +67,4 @@ func loadFixture(t *testing.T, name string) []byte {
 	require.NoError(t, err)
 
 	return data
-}
-
-type brokenReader struct {
-	err error
-}
-
-func (r *brokenReader) Read([]byte) (int, error) {
-	return 0, r.err
 }
