@@ -67,7 +67,7 @@ func New(opts Options) (*Engine, error) {
 
 // Analyze crawls website
 func (e *Engine) Analyze(ctx context.Context) (Report, error) {
-	pages, err := e.analyzePage(ctx, e.rootURL.String())
+	pages, err := e.analyzePage(ctx, e.rootURL)
 	if err != nil {
 		return Report{}, err
 	}
@@ -80,8 +80,8 @@ func (e *Engine) Analyze(ctx context.Context) (Report, error) {
 	}, nil
 }
 
-func (e *Engine) analyzePage(ctx context.Context, pageURL string) ([]PageReport, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", pageURL, nil)
+func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) ([]PageReport, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", pageURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +166,7 @@ type Report struct {
 
 // PageReport contains page report
 type PageReport struct {
-	URL          string
+	URL          *url.URL
 	Depth        int
 	HTTPStatus   int
 	Status       string

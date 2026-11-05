@@ -82,7 +82,7 @@ func toPageReport(page engine.PageReport) PageReport {
 	}
 
 	return PageReport{
-		URL:          page.URL,
+		URL:          page.URL.String(),
 		Depth:        page.Depth,
 		HTTPStatus:   page.HTTPStatus,
 		Status:       page.Status,
