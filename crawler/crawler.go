@@ -2,7 +2,6 @@ package crawler
 
 import (
 	"context"
-	"time"
 
 	"code/internal/engine"
 	"code/internal/formatter"
@@ -23,16 +22,9 @@ func Analyze(ctx context.Context, opts Options) ([]byte, error) {
 		return nil, err
 	}
 
-	pages, err := e.AnalyzePage(ctx, opts.URL)
+	report, err := e.Analyze(ctx)
 	if err != nil {
 		return nil, err
-	}
-
-	report := engine.Report{
-		RootURL:     opts.URL,
-		Depth:       opts.Depth,
-		GeneratedAt: time.Now(),
-		Pages:       pages,
 	}
 
 	return formatter.Format(report)

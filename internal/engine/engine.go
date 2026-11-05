@@ -40,6 +40,7 @@ type Engine struct {
 	rootURL   *url.URL
 	userAgent string
 	client    *http.Client
+	depth     int
 }
 
 // New constructs new crawler engine
@@ -60,11 +61,26 @@ func New(opts Options) (*Engine, error) {
 		rootURL:   rootURL,
 		userAgent: opts.UserAgent,
 		client:    client,
+		depth:     opts.Depth,
 	}, nil
 }
 
-// AnalyzePage analyzes page seo and gathers broken links
-func (e *Engine) AnalyzePage(ctx context.Context, pageURL string) ([]PageReport, error) {
+// Analyze crawls website
+func (e *Engine) Analyze(ctx context.Context) (Report, error) {
+	pages, err := e.analyzePage(ctx, e.rootURL.String())
+	if err != nil {
+		return Report{}, err
+	}
+
+	return Report{
+		RootURL:     e.rootURL.String(),
+		Depth:       e.depth,
+		GeneratedAt: time.Now(),
+		Pages:       pages,
+	}, nil
+}
+
+func (e *Engine) analyzePage(ctx context.Context, pageURL string) ([]PageReport, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", pageURL, nil)
 	if err != nil {
 		return nil, err
