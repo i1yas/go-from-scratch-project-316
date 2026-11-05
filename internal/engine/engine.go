@@ -114,7 +114,7 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL string) ([]PageReport,
 		isHTML := strings.HasPrefix(respContentType, "text/html")
 
 		if isHTML {
-			e.processHTML(resp.Body, &page)
+			e.processDocument(resp.Body, &page)
 		}
 	}
 
@@ -123,8 +123,8 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL string) ([]PageReport,
 	return pages, nil
 }
 
-func (e *Engine) processHTML(respBody io.Reader, page *PageReport) {
-	doc, err := goquery.NewDocumentFromReader(respBody)
+func (e *Engine) processDocument(rawDocument io.Reader, page *PageReport) {
+	doc, err := goquery.NewDocumentFromReader(rawDocument)
 	if err != nil {
 		return
 	}
