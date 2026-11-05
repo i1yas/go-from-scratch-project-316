@@ -13,6 +13,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"code/internal/formatter"
 )
 
 func TestAnalyze_WellFormedPage(t *testing.T) {
@@ -30,23 +32,23 @@ func TestAnalyze_WellFormedPage(t *testing.T) {
 
 	client := server.Client()
 
-	want := reportDTO{
+	want := formatter.Report{
 		RootURL: url,
 		Depth:   1,
-		Pages: []pageReportDTO{
+		Pages: []formatter.PageReport{
 			{
 				URL:        url,
 				Depth:      0,
 				HTTPStatus: 200,
 				Status:     "ok",
-				SEO: pageSEODTO{
+				SEO: formatter.PageSEO{
 					HasTitle:       true,
 					HasDescription: true,
 					HasH1:          true,
 					Title:          "Test <title>",
 					Description:    `test <meta name="description">`,
 				},
-				BrokenLinks: []brokenLinkDTO{
+				BrokenLinks: []formatter.BrokenLink{
 					{
 						URL:        "http://test.com/broken",
 						StatusCode: 500,
@@ -85,16 +87,16 @@ func TestAnalyze_PageWithoutLinks(t *testing.T) {
 
 	client := server.Client()
 
-	want := reportDTO{
+	want := formatter.Report{
 		RootURL: url,
 		Depth:   1,
-		Pages: []pageReportDTO{
+		Pages: []formatter.PageReport{
 			{
 				URL:        url,
 				Depth:      0,
 				HTTPStatus: 200,
 				Status:     "ok",
-				SEO: pageSEODTO{
+				SEO: formatter.PageSEO{
 					HasTitle: true,
 					Title:    "Document",
 				},
@@ -134,10 +136,10 @@ func TestAnalyze_NetworkError(t *testing.T) {
 
 	url := "http://test.com"
 
-	want := reportDTO{
+	want := formatter.Report{
 		RootURL: url,
 		Depth:   1,
-		Pages: []pageReportDTO{
+		Pages: []formatter.PageReport{
 			{
 				URL:   url,
 				Depth: 0,
@@ -193,10 +195,10 @@ func TestAnalyze_InvalidOptions(t *testing.T) {
 	})
 }
 
-func requireReportEquals(t *testing.T, want reportDTO, gotRaw []byte) {
+func requireReportEquals(t *testing.T, want formatter.Report, gotRaw []byte) {
 	t.Helper()
 
-	var got reportDTO
+	var got formatter.Report
 
 	err := json.Unmarshal(gotRaw, &got)
 	require.NoError(t, err)

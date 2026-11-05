@@ -1,4 +1,4 @@
-package crawler
+package formatter
 
 import (
 	"encoding/json"
@@ -7,25 +7,28 @@ import (
 	"code/internal/engine"
 )
 
-type reportDTO struct {
-	RootURL     string          `json:"root_url"`
-	Depth       int             `json:"depth"`
-	GeneratedAt string          `json:"generated_at"`
-	Pages       []pageReportDTO `json:"pages"`
+// Report contains formatted report
+type Report struct {
+	RootURL     string       `json:"root_url"`
+	Depth       int          `json:"depth"`
+	GeneratedAt string       `json:"generated_at"`
+	Pages       []PageReport `json:"pages"`
 }
 
-type pageReportDTO struct {
-	URL          string          `json:"url"`
-	Depth        int             `json:"depth"`
-	HTTPStatus   int             `json:"http_status"`
-	Status       string          `json:"status"`
-	Error        string          `json:"error"`
-	SEO          pageSEODTO      `json:"seo"`
-	BrokenLinks  []brokenLinkDTO `json:"broken_links"`
-	DiscoveredAt string          `json:"discovered_at"`
+// PageReport contains formatted page report
+type PageReport struct {
+	URL          string       `json:"url"`
+	Depth        int          `json:"depth"`
+	HTTPStatus   int          `json:"http_status"`
+	Status       string       `json:"status"`
+	Error        string       `json:"error"`
+	SEO          PageSEO      `json:"seo"`
+	BrokenLinks  []BrokenLink `json:"broken_links"`
+	DiscoveredAt string       `json:"discovered_at"`
 }
 
-type pageSEODTO struct {
+// PageSEO contains formatted page seo
+type PageSEO struct {
 	HasTitle       bool   `json:"has_title"`
 	HasDescription bool   `json:"has_description"`
 	HasH1          bool   `json:"has_h1"`
@@ -33,20 +36,22 @@ type pageSEODTO struct {
 	Description    string `json:"description"`
 }
 
-type brokenLinkDTO struct {
+// BrokenLink contains formatted info about broken link
+type BrokenLink struct {
 	URL        string `json:"url"`
 	StatusCode int    `json:"status_code,omitempty"`
 	Err        string `json:"error,omitempty"`
 }
 
-func formatReport(report engine.Report) ([]byte, error) {
-	pages := make([]pageReportDTO, len(report.Pages))
+// Format format Report from engine
+func Format(report engine.Report) ([]byte, error) {
+	pages := make([]PageReport, len(report.Pages))
 
 	for i, page := range report.Pages {
-		pages[i] = toPageReportDTO(page)
+		pages[i] = toPageReport(page)
 	}
 
-	reportDTO := reportDTO{
+	reportDTO := Report{
 		RootURL:     report.RootURL,
 		Depth:       report.Depth,
 		GeneratedAt: formatTime(report.GeneratedAt),
@@ -61,14 +66,14 @@ func formatReport(report engine.Report) ([]byte, error) {
 	return reportJSON, nil
 }
 
-func toPageReportDTO(page engine.PageReport) pageReportDTO {
-	brokenLinks := make([]brokenLinkDTO, len(page.BrokenLinks))
+func toPageReport(page engine.PageReport) PageReport {
+	brokenLinks := make([]BrokenLink, len(page.BrokenLinks))
 
 	for i, bl := range page.BrokenLinks {
-		brokenLinks[i] = toBrokenLinkDTO(bl)
+		brokenLinks[i] = toBrokenLink(bl)
 	}
 
-	seo := pageSEODTO{
+	seo := PageSEO{
 		HasTitle:       page.SEO.HasTitle,
 		HasDescription: page.SEO.HasDescription,
 		HasH1:          page.SEO.HasH1,
@@ -76,7 +81,7 @@ func toPageReportDTO(page engine.PageReport) pageReportDTO {
 		Description:    page.SEO.Description,
 	}
 
-	return pageReportDTO{
+	return PageReport{
 		URL:          page.URL,
 		Depth:        page.Depth,
 		HTTPStatus:   page.HTTPStatus,
@@ -88,13 +93,13 @@ func toPageReportDTO(page engine.PageReport) pageReportDTO {
 	}
 }
 
-func toBrokenLinkDTO(bl engine.BrokenLink) brokenLinkDTO {
+func toBrokenLink(bl engine.BrokenLink) BrokenLink {
 	err := ""
 	if bl.Err != nil {
 		err = bl.Err.Error()
 	}
 
-	return brokenLinkDTO{
+	return BrokenLink{
 		URL:        bl.URL,
 		StatusCode: bl.StatusCode,
 		Err:        err,

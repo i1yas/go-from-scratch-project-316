@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"code/internal/engine"
+	"code/internal/formatter"
 )
 
 var (
@@ -34,5 +35,5 @@ func Analyze(ctx context.Context, opts Options) ([]byte, error) {
 		Pages:       pages,
 	}
 
-	return formatReport(report)
+	return formatter.Format(report)
 }
