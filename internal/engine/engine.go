@@ -81,32 +81,21 @@ func (e *Engine) Analyze(ctx context.Context) (Report, error) {
 }
 
 func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) ([]PageReport, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", pageURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	if e.userAgent != "" {
-		req.Header.Set("User-Agent", e.userAgent)
-	}
-
+	pages := []PageReport{}
 	page := PageReport{
 		URL:          pageURL,
 		Depth:        0,
 		DiscoveredAt: time.Now(),
 	}
 
-	resp, err := e.client.Do(req)
+	resp, err := e.fetch(ctx, pageURL)
 
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+	switch {
+	case errors.Is(err, context.Canceled):
 		return nil, err
-	}
-
-	pages := []PageReport{}
-
-	if err != nil {
+	case err != nil:
 		page.Error = err.Error()
-	} else {
+	default:
 		page.HTTPStatus = resp.StatusCode
 		page.Status = statusText(resp)
 
@@ -121,6 +110,19 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) ([]PageRepor
 	pages = append(pages, page)
 
 	return pages, nil
+}
+
+func (e *Engine) fetch(ctx context.Context, pageURL *url.URL) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", pageURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if e.userAgent != "" {
+		req.Header.Set("User-Agent", e.userAgent)
+	}
+
+	return e.client.Do(req)
 }
 
 func (e *Engine) processDocument(rawDocument io.Reader, page *PageReport) {
@@ -152,6 +154,7 @@ func (e *Engine) processDocument(rawDocument io.Reader, page *PageReport) {
 				URL:        link.String(),
 				StatusCode: resp.StatusCode,
 			})
+			continue
 		}
 	}
 }
