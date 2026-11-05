@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,9 +21,10 @@ import (
 
 func TestAnalyze_WellFormedPage(t *testing.T) {
 	pageContent := loadFixture(t, "well-formed-page.html")
-	url := "http://test.com"
+	host := "test.com"
+	url := "http://" + host
 
-	server := setupTestServer(t, "test.com",
+	server := setupTestServer(t, host,
 		map[string]testServerResponse{
 			"/":        {status: 200, body: pageContent},
 			"/working": {status: 200},
@@ -57,6 +60,18 @@ func TestAnalyze_WellFormedPage(t *testing.T) {
 						URL:        "https://example.com/page?param1=x&param2=y",
 						StatusCode: 404,
 					},
+				},
+				Error: "",
+			},
+			{
+				URL:        url + "/working",
+				Depth:      1,
+				HTTPStatus: 200,
+				Status:     "ok",
+				SEO: formatter.PageSEO{
+					HasTitle:       false,
+					HasDescription: false,
+					HasH1:          false,
 				},
 				Error: "",
 			},
@@ -207,23 +222,30 @@ func requireReportEquals(t *testing.T, want formatter.Report, gotRaw []byte) {
 	require.Equal(t, want.Depth, got.Depth)
 	requireTimeIsValid(t, got.GeneratedAt)
 
-	require.Equal(t, len(want.Pages), len(got.Pages))
+	require.Equal(t, len(want.Pages), len(got.Pages), "amount of pages")
+
+	slices.SortFunc(got.Pages, comparePageReports)
+	slices.SortFunc(want.Pages, comparePageReports)
 
 	for i := range want.Pages {
 		wantPage := want.Pages[i]
 		gotPage := got.Pages[i]
 
-		assert.Equal(t, wantPage.URL, gotPage.URL)
-		assert.Equal(t, wantPage.Depth, gotPage.Depth)
-		assert.Contains(t, gotPage.Error, wantPage.Error)
-		assert.Equal(t, wantPage.HTTPStatus, gotPage.HTTPStatus)
-		assert.Equal(t, wantPage.Status, gotPage.Status)
-		assert.Equal(t, wantPage.SEO, gotPage.SEO)
+		assert.Equal(t, wantPage.URL, gotPage.URL, "url")
+		assert.Equal(t, wantPage.Depth, gotPage.Depth, "depth")
+		assert.Contains(t, gotPage.Error, wantPage.Error, "error")
+		assert.Equal(t, wantPage.HTTPStatus, gotPage.HTTPStatus, "http status")
+		assert.Equal(t, wantPage.Status, gotPage.Status, "status")
+		assert.Equal(t, wantPage.SEO, gotPage.SEO, "seo")
 
-		require.ElementsMatch(t, wantPage.BrokenLinks, gotPage.BrokenLinks)
+		require.ElementsMatch(t, wantPage.BrokenLinks, gotPage.BrokenLinks, "broken links")
 
 		requireTimeIsValid(t, gotPage.DiscoveredAt)
 	}
+}
+
+func comparePageReports(a, b formatter.PageReport) int {
+	return strings.Compare(a.URL, b.URL)
 }
 
 func requireTimeIsValid(t *testing.T, value string) {

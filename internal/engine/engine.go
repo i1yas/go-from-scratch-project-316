@@ -37,10 +37,12 @@ type Options struct {
 
 // Engine is crawler engine
 type Engine struct {
-	rootURL   *url.URL
-	userAgent string
-	client    *http.Client
-	depth     int
+	rootURL     *url.URL
+	userAgent   string
+	client      *http.Client
+	depth       int
+	pages       map[string]PageReport
+	brokenLinks map[string]BrokenLink
 }
 
 // New constructs new crawler engine
@@ -58,18 +60,28 @@ func New(opts Options) (*Engine, error) {
 	client.Timeout = opts.Timeout
 
 	return &Engine{
-		rootURL:   rootURL,
-		userAgent: opts.UserAgent,
-		client:    client,
-		depth:     opts.Depth,
+		rootURL:     rootURL,
+		userAgent:   opts.UserAgent,
+		client:      client,
+		depth:       opts.Depth,
+		pages:       map[string]PageReport{},
+		brokenLinks: map[string]BrokenLink{},
 	}, nil
 }
 
 // Analyze crawls website
 func (e *Engine) Analyze(ctx context.Context) (Report, error) {
-	pages, err := e.analyzePage(ctx, e.rootURL)
+	err := e.analyzePage(ctx, e.rootURL)
 	if err != nil {
 		return Report{}, err
+	}
+
+	pages := make([]PageReport, len(e.pages))
+
+	i := 0
+	for _, page := range e.pages {
+		pages[i] = page
+		i++
 	}
 
 	return Report{
@@ -80,11 +92,22 @@ func (e *Engine) Analyze(ctx context.Context) (Report, error) {
 	}, nil
 }
 
-func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) ([]PageReport, error) {
-	pages := []PageReport{}
+func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
+	_, pageIsAnalyzed := e.pages[pageURL.String()]
+	if pageIsAnalyzed {
+		return nil
+	}
+
+	parent := parentPageFromContext(ctx)
+
+	depth := 0
+	if parent != nil {
+		depth = parent.Depth + 1
+	}
+
 	page := PageReport{
 		URL:          pageURL,
-		Depth:        0,
+		Depth:        depth,
 		DiscoveredAt: time.Now(),
 	}
 
@@ -92,24 +115,38 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) ([]PageRepor
 
 	switch {
 	case errors.Is(err, context.Canceled):
-		return nil, err
+		return err
 	case err != nil:
 		page.Error = err.Error()
+	case resp.StatusCode >= 400:
+		if parent != nil {
+			bl := BrokenLink{
+				URL:        pageURL.String(),
+				StatusCode: resp.StatusCode,
+			}
+			e.brokenLinks[pageURL.String()] = bl
+			parent.BrokenLinks = append(parent.BrokenLinks, bl)
+		}
+
+		return nil
 	default:
 		page.HTTPStatus = resp.StatusCode
 		page.Status = statusText(resp)
 
 		respContentType := resp.Header.Get("Content-Type")
-		isHTML := strings.HasPrefix(respContentType, "text/html")
+		if !isHTMLContentType(respContentType) {
+			break
+		}
 
-		if isHTML {
-			e.processDocument(resp.Body, &page)
+		err := e.processDocument(ctx, resp.Body, &page)
+		if err != nil {
+			return err
 		}
 	}
 
-	pages = append(pages, page)
+	e.pages[pageURL.String()] = page
 
-	return pages, nil
+	return nil
 }
 
 func (e *Engine) fetch(ctx context.Context, pageURL *url.URL) (*http.Response, error) {
@@ -125,38 +162,52 @@ func (e *Engine) fetch(ctx context.Context, pageURL *url.URL) (*http.Response, e
 	return e.client.Do(req)
 }
 
-func (e *Engine) processDocument(rawDocument io.Reader, page *PageReport) {
+func (e *Engine) processDocument(ctx context.Context, rawDocument io.Reader, page *PageReport) error {
 	doc, err := goquery.NewDocumentFromReader(rawDocument)
 	if err != nil {
-		return
-	}
-
-	links, err := htmlparser.ExtractLinks(doc, e.rootURL)
-	if err != nil {
-		return
+		return nil
 	}
 
 	page.SEO = htmlparser.AnalyzeSEO(doc)
 
-	for _, link := range links {
-		resp, err := e.client.Get(link.String())
-		if err != nil {
-			page.BrokenLinks = append(page.BrokenLinks, BrokenLink{
-				URL: link.String(),
-				Err: err,
-			})
+	links, err := htmlparser.ExtractLinks(doc, e.rootURL)
+	if err != nil {
+		return nil
+	}
 
+	for _, link := range links {
+		bl, isBroken := e.brokenLinks[link.String()]
+		if isBroken {
+			page.BrokenLinks = append(page.BrokenLinks, bl)
 			continue
 		}
 
-		if resp.StatusCode >= 400 {
-			page.BrokenLinks = append(page.BrokenLinks, BrokenLink{
-				URL:        link.String(),
-				StatusCode: resp.StatusCode,
-			})
-			continue
+		err := e.analyzePage(withParentPage(ctx, page), link)
+		if err != nil {
+			return err
 		}
 	}
+
+	return nil
+}
+
+type parentPageKey struct{}
+
+func withParentPage(ctx context.Context, page *PageReport) context.Context {
+	return context.WithValue(ctx, parentPageKey{}, page)
+}
+
+func parentPageFromContext(ctx context.Context) *PageReport {
+	page, ok := ctx.Value(parentPageKey{}).(*PageReport)
+	if !ok {
+		return nil
+	}
+
+	return page
+}
+
+func isHTMLContentType(contentType string) bool {
+	return strings.HasPrefix(contentType, "text/html")
 }
 
 // Report contains crawling report
