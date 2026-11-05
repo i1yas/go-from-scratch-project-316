@@ -43,8 +43,8 @@ func TestAnalyze_WellFormedPage(t *testing.T) {
 					HasTitle:       true,
 					HasDescription: true,
 					HasH1:          true,
-					Title:          "Test title",
-					Description:    "test description",
+					Title:          "Test <title>",
+					Description:    `test <meta name="description">`,
 				},
 				BrokenLinks: []brokenLinkDTO{
 					{
@@ -52,7 +52,7 @@ func TestAnalyze_WellFormedPage(t *testing.T) {
 						StatusCode: 500,
 					},
 					{
-						URL:        "https://example.com/page?param=value",
+						URL:        "https://example.com/page?param1=x&param2=y",
 						StatusCode: 404,
 					},
 				},
