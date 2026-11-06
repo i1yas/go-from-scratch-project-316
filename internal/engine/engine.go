@@ -168,7 +168,7 @@ func (e *Engine) processDocument(ctx context.Context, rawDocument io.Reader, pag
 		return nil
 	}
 
-	page.SEO = htmlparser.AnalyzeSEO(doc)
+	page.SEO = analyzeSEO(doc)
 
 	if page.Depth == e.depth {
 		return nil

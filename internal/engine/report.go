@@ -3,8 +3,6 @@ package engine
 import (
 	"net/url"
 	"time"
-
-	"code/internal/htmlparser"
 )
 
 // Report contains crawling report
@@ -22,7 +20,7 @@ type PageReport struct {
 	HTTPStatus   int
 	Status       string
 	Error        string
-	SEO          htmlparser.SEO
+	SEO          PageSEO
 	BrokenLinks  []BrokenLink
 	DiscoveredAt time.Time
 }
