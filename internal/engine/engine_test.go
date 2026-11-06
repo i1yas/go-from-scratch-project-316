@@ -35,7 +35,7 @@ func TestAnalyze_WellFormedPage(t *testing.T) {
 		nil,
 	)
 
-	client := server.Client()
+	client := server.srv.Client()
 
 	want := Report{
 		RootURL: rootURL.String(),
@@ -94,6 +94,42 @@ func TestAnalyze_WellFormedPage(t *testing.T) {
 	requireReportMatches(t, want, got)
 }
 
+func TestAnalyze_PagesFetchedOnce(t *testing.T) {
+	pageContent := loadFixture(t, "well-formed-page.html")
+	host := "test.com"
+
+	rootURL, err := url.Parse("http://" + host)
+	require.NoError(t, err)
+
+	server := setupTestServer(t, host,
+		map[string]testServerResponse{
+			"/":        {status: 200, body: pageContent},
+			"/working": {status: 200},
+			"/broken":  {status: 500},
+		},
+		nil,
+	)
+
+	client := server.srv.Client()
+
+	e, err := New(Options{
+		URL:        rootURL.String(),
+		Depth:      1,
+		HTTPClient: client,
+	})
+	require.NoError(t, err)
+
+	_, err = e.Analyze(t.Context())
+	require.NoError(t, err)
+
+	_, err = e.Analyze(t.Context())
+	require.NoError(t, err)
+
+	require.Equal(t, server.calls["/"], 1)
+	require.Equal(t, server.calls["/working"], 1)
+	require.Equal(t, server.calls["/broken"], 1)
+}
+
 func TestAnalyze_RestrictDepth(t *testing.T) {
 	pageContent := loadFixture(t, "well-formed-page.html")
 	host := "test.com"
@@ -110,7 +146,7 @@ func TestAnalyze_RestrictDepth(t *testing.T) {
 		nil,
 	)
 
-	client := server.Client()
+	client := server.srv.Client()
 
 	e, err := New(Options{
 		URL:        rootURL.String(),
@@ -139,7 +175,7 @@ func TestAnalyze_PageWithoutLinks(t *testing.T) {
 		nil,
 	)
 
-	client := server.Client()
+	client := server.srv.Client()
 
 	want := Report{
 		RootURL: rootURL.String(),
@@ -308,13 +344,22 @@ type testServerResponse struct {
 	body   []byte
 }
 
+type testServer struct {
+	srv   *httptest.Server
+	calls map[string]int
+}
+
 func setupTestServer(
 	t *testing.T,
 	host string,
 	internalLinksMapper map[string]testServerResponse,
 	foreignLinksMapper map[string]testServerResponse,
-) *httptest.Server {
+) testServer {
+	calls := map[string]int{}
+
 	server := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls[r.URL.String()]++
+
 		if r.Host != host {
 			respConf, ok := foreignLinksMapper[r.RequestURI]
 			if !ok {
@@ -340,5 +385,8 @@ func setupTestServer(
 		require.NoError(t, err)
 	}))
 
-	return server
+	return testServer{
+		srv:   server,
+		calls: calls,
+	}
 }
