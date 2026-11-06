@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -256,7 +257,7 @@ func TestAnalyze_NetworkError(t *testing.T) {
 	requireReportMatches(t, want, got)
 }
 
-func TestAnalyze_ErrorOnCanceledContext(t *testing.T) {
+func TestAnalyze_CancelContextBeforeStart(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
@@ -272,6 +273,81 @@ func TestAnalyze_ErrorOnCanceledContext(t *testing.T) {
 
 	_, err = e.Analyze(ctx)
 	require.ErrorIs(t, err, context.Canceled)
+}
+
+func TestAnalyze_CancelContextAfterLinksCollected(t *testing.T) {
+	var wg sync.WaitGroup
+
+	ctx, cancel := context.WithCancel(t.Context())
+
+	pageContent := loadFixture(t, "well-formed-page.html")
+
+	reqStarted := make(chan struct{})
+	blockReq := make(chan struct{})
+	defer close(blockReq)
+
+	server := setupTestServer(t, "test.com", map[string]testServerResponse{
+		"/": {status: 200, body: pageContent},
+		"/working": {fn: func(w http.ResponseWriter, _ *http.Request) {
+			close(reqStarted)
+			<-blockReq
+			w.WriteHeader(http.StatusOK)
+		}},
+	}, nil)
+
+	rootURL, err := url.Parse("http://test.com")
+	require.NoError(t, err)
+
+	e, err := New(Options{
+		URL:        rootURL.String(),
+		HTTPClient: server.srv.Client(),
+		Depth:      1,
+	})
+	require.NoError(t, err)
+
+	want := Report{
+		RootURL: rootURL.String(),
+		Depth:   1,
+		Pages: []PageReport{
+			{
+				URL:        rootURL,
+				Depth:      0,
+				HTTPStatus: 200,
+				Status:     "ok",
+				SEO: PageSEO{
+					HasTitle:       true,
+					HasDescription: true,
+					HasH1:          true,
+					Title:          "Test <title>",
+					Description:    `test <meta name="description">`,
+				},
+				BrokenLinks: []BrokenLink{
+					{
+						URL:        "http://test.com/broken",
+						StatusCode: 404,
+					},
+					{
+						URL:        "https://example.com/page?param1=x&param2=y",
+						StatusCode: 404,
+					},
+				},
+				Error: "",
+			},
+		},
+	}
+
+	wg.Go(func() {
+		got, err := e.Analyze(ctx)
+		require.ErrorIs(t, err, context.Canceled)
+
+		requireReportMatches(t, want, got)
+	})
+
+	<-reqStarted
+
+	cancel()
+
+	wg.Wait()
 }
 
 func TestEngine_InvalidOptions(t *testing.T) {
@@ -302,14 +378,18 @@ func requireReportMatches(t *testing.T, want, got Report) {
 	require.Equal(t, want.Depth, got.Depth, "report depth")
 	require.NotZero(t, got.GeneratedAt, "report generation time is set")
 
-	require.Equal(t, len(want.Pages), len(got.Pages), "amount of pages")
+	requirePagesMatch(t, want.Pages, got.Pages)
+}
 
-	slices.SortFunc(got.Pages, comparePageReports)
-	slices.SortFunc(want.Pages, comparePageReports)
+func requirePagesMatch(t *testing.T, want, got []PageReport) {
+	require.Equal(t, len(want), len(got), "amount of pages")
 
-	for i := range want.Pages {
-		wantPage := want.Pages[i]
-		gotPage := got.Pages[i]
+	slices.SortFunc(got, comparePageReports)
+	slices.SortFunc(want, comparePageReports)
+
+	for i := range want {
+		wantPage := want[i]
+		gotPage := got[i]
 
 		assert.Equal(t, wantPage.URL, gotPage.URL, "url")
 		assert.Equal(t, wantPage.Depth, gotPage.Depth, "depth")
@@ -342,6 +422,7 @@ func loadFixture(t *testing.T, name string) []byte {
 type testServerResponse struct {
 	status int
 	body   []byte
+	fn     func(w http.ResponseWriter, r *http.Request)
 }
 
 type testServer struct {
@@ -355,38 +436,51 @@ func setupTestServer(
 	internalLinksMapper map[string]testServerResponse,
 	foreignLinksMapper map[string]testServerResponse,
 ) testServer {
+	t.Helper()
+
 	calls := map[string]int{}
 
 	server := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls[r.URL.String()]++
 
 		if r.Host != host {
-			respConf, ok := foreignLinksMapper[r.RequestURI]
-			if !ok {
-				w.WriteHeader(http.StatusNotFound)
-				return
-			}
-
-			w.WriteHeader(respConf.status)
-			_, err := w.Write(respConf.body)
-			require.NoError(t, err)
-
+			handleTestRequest(t, foreignLinksMapper, w, r)
 			return
 		}
 
-		respConf, ok := internalLinksMapper[r.RequestURI]
-		if !ok {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-
-		w.WriteHeader(respConf.status)
-		_, err := w.Write(respConf.body)
-		require.NoError(t, err)
+		handleTestRequest(t, internalLinksMapper, w, r)
 	}))
+
+	t.Cleanup(func() {
+		server.Close()
+	})
 
 	return testServer{
 		srv:   server,
 		calls: calls,
 	}
+}
+
+func handleTestRequest(
+	t *testing.T,
+	mapper map[string]testServerResponse,
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	t.Helper()
+
+	respConf, ok := mapper[r.RequestURI]
+	if !ok {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	if respConf.fn != nil {
+		respConf.fn(w, r)
+		return
+	}
+
+	w.WriteHeader(respConf.status)
+	_, err := w.Write(respConf.body)
+	require.NoError(t, err)
 }
