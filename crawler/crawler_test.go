@@ -89,6 +89,38 @@ func TestAnalyze_WellFormedPage(t *testing.T) {
 	requireReportEquals(t, want, gotRaw)
 }
 
+func TestAnalyze_RestrictDepth(t *testing.T) {
+	pageContent := loadFixture(t, "well-formed-page.html")
+	host := "test.com"
+	url := "http://" + host
+
+	server := setupTestServer(t, host,
+		map[string]testServerResponse{
+			"/":        {status: 200, body: pageContent},
+			"/working": {status: 200},
+			"/broken":  {status: 500},
+		},
+		nil,
+	)
+
+	client := server.Client()
+
+	gotRaw, err := Analyze(t.Context(), Options{
+		URL:        url,
+		Depth:      0,
+		UserAgent:  "test",
+		HTTPClient: client,
+	})
+	require.NoError(t, err)
+
+	var got formatter.Report
+
+	err = json.Unmarshal(gotRaw, &got)
+	require.NoError(t, err)
+
+	require.Equal(t, 1, len(got.Pages), "page count")
+}
+
 func TestAnalyze_PageWithoutLinks(t *testing.T) {
 	pageContent := loadFixture(t, "page-without-links.html")
 	url := "http://test.com"

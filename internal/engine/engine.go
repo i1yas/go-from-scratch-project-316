@@ -170,6 +170,10 @@ func (e *Engine) processDocument(ctx context.Context, rawDocument io.Reader, pag
 
 	page.SEO = htmlparser.AnalyzeSEO(doc)
 
+	if page.Depth == e.depth {
+		return nil
+	}
+
 	links, err := htmlparser.ExtractLinks(doc, e.rootURL)
 	if err != nil {
 		return nil
