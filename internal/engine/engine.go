@@ -165,17 +165,15 @@ func (e *Engine) processPageResponse(
 		return nil
 	}
 
+	if e.isForeignLink(pageURL) {
+		return nil
+	}
+
 	page.HTTPStatus = resp.StatusCode
 	page.Status = statusText(resp)
 
 	respContentType := resp.Header.Get("Content-Type")
 	if !isHTMLContentType(respContentType) {
-		page.isComplete = true
-		return nil
-	}
-
-	isForeignLink := e.rootURL.Host != pageURL.Host
-	if isForeignLink {
 		page.isComplete = true
 		return nil
 	}
@@ -222,6 +220,10 @@ func (e *Engine) processDocument(ctx context.Context, rawDocument io.Reader, pag
 	}
 
 	return nil
+}
+
+func (e *Engine) isForeignLink(link *url.URL) bool {
+	return e.rootURL.Host != link.Host
 }
 
 type parentPageKey struct{}

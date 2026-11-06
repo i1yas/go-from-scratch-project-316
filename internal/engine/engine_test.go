@@ -27,9 +27,6 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 	nestedURL, err := url.Parse("http://" + host + "/working")
 	require.NoError(t, err)
 
-	nestedForeignURL, err := url.Parse("https://example.com/home")
-	require.NoError(t, err)
-
 	server := setupTestServer(t, host,
 		map[string]testServerResponse{
 			"/":        {status: 200, body: pageContent},
@@ -82,13 +79,6 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 					HasH1:          false,
 				},
 				Error: "",
-			},
-			{
-				URL:        nestedForeignURL,
-				Depth:      1,
-				HTTPStatus: 200,
-				Status:     "ok",
-				Error:      "",
 			},
 		},
 	}
