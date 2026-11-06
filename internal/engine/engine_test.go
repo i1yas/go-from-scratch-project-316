@@ -27,13 +27,18 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 	nestedURL, err := url.Parse("http://" + host + "/working")
 	require.NoError(t, err)
 
+	nestedForeignURL, err := url.Parse("https://example.com/home")
+	require.NoError(t, err)
+
 	server := setupTestServer(t, host,
 		map[string]testServerResponse{
 			"/":        {status: 200, body: pageContent},
 			"/working": {status: 200},
 			"/broken":  {status: 500},
 		},
-		nil,
+		map[string]testServerResponse{
+			"/home": {status: 200, body: pageContent},
+		},
 	)
 
 	client := server.srv.Client()
@@ -77,6 +82,13 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 					HasH1:          false,
 				},
 				Error: "",
+			},
+			{
+				URL:        nestedForeignURL,
+				Depth:      1,
+				HTTPStatus: 200,
+				Status:     "ok",
+				Error:      "",
 			},
 		},
 	}
@@ -329,6 +341,10 @@ func TestEngineAnalyze_CancelContextAfterLinksCollected(t *testing.T) {
 					},
 					{
 						URL:        "https://example.com/page?param1=x&param2=y",
+						StatusCode: 404,
+					},
+					{
+						URL:        "https://example.com/home",
 						StatusCode: 404,
 					},
 				},

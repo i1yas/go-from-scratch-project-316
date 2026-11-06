@@ -143,6 +143,12 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 			return nil
 		}
 
+		isForeignLink := e.rootURL.Host != pageURL.Host
+		if isForeignLink {
+			page.isComplete = true
+			return nil
+		}
+
 		err := e.processDocument(ctx, resp.Body, &page)
 		if errors.Is(err, context.Canceled) {
 			page.isComplete = true
