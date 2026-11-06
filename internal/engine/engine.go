@@ -184,9 +184,13 @@ func (e *Engine) processPageResponse(
 		return err
 	}
 
-	page.isComplete = err == nil
+	if err != nil {
+		return err
+	}
 
-	return err
+	page.isComplete = true
+
+	return nil
 }
 
 func (e *Engine) processDocument(ctx context.Context, rawDocument io.Reader, page *PageReport) error {
