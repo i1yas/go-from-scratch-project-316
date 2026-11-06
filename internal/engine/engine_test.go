@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -163,6 +165,107 @@ func TestEngineAnalyze_RestrictDepth(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, 1, len(got.Pages), "page count")
+}
+
+func TestEngineAnalyze_Delay(t *testing.T) {
+	linkCount := 10
+	pageContent := generateDocumentWithLinks(t, linkCount)
+
+	host := "test.com"
+
+	rootURL, err := url.Parse("http://" + host)
+	require.NoError(t, err)
+
+	analyzeDuration := time.Millisecond * 5
+
+	t.Run("no delay", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		analyzeEnded := make(chan struct{})
+
+		server := setupTestServer(t, host,
+			map[string]testServerResponse{
+				"/": {status: 200, body: pageContent},
+			},
+			nil,
+		)
+
+		client := server.srv.Client()
+
+		e, err := New(Options{
+			URL:        rootURL.String(),
+			Depth:      100,
+			UserAgent:  "test",
+			HTTPClient: client,
+		})
+		require.NoError(t, err)
+
+		go func() {
+			defer close(analyzeEnded)
+
+			_, err = e.Analyze(ctx)
+			require.NoError(t, err, context.Canceled)
+		}()
+
+		time.Sleep(analyzeDuration)
+
+		cancel()
+
+		require.Equal(t, linkCount+1, server.totalCallsCount())
+
+		<-analyzeEnded
+	})
+
+	t.Run("with delay", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		delay := time.Millisecond
+		maxCalls := int(analyzeDuration / delay)
+
+		require.Less(t, maxCalls, linkCount)
+
+		analyzeEnded := make(chan struct{})
+
+		server := setupTestServer(t, host,
+			map[string]testServerResponse{
+				"/": {status: 200, body: pageContent},
+			},
+			nil,
+		)
+
+		client := server.srv.Client()
+
+		e, err := New(Options{
+			URL:        rootURL.String(),
+			Depth:      100,
+			Delay:      delay,
+			UserAgent:  "test",
+			HTTPClient: client,
+		})
+		require.NoError(t, err)
+
+		go func() {
+			defer close(analyzeEnded)
+
+			_, err = e.Analyze(ctx)
+			require.ErrorIs(t, err, context.Canceled)
+		}()
+
+		time.Sleep(analyzeDuration)
+
+		cancelStart := time.Now()
+
+		cancel()
+
+		require.LessOrEqual(t, server.totalCallsCount(), maxCalls)
+
+		<-analyzeEnded
+
+		delayAfterCancel := time.Since(cancelStart)
+		require.Less(t, delayAfterCancel, delay)
+	})
 }
 
 func TestEngineAnalyze_PageWithoutLinks(t *testing.T) {
@@ -468,6 +571,15 @@ func setupTestServer(
 	}
 }
 
+func (ts *testServer) totalCallsCount() int {
+	total := 0
+	for _, count := range ts.calls {
+		total += count
+	}
+
+	return total
+}
+
 func handleTestRequest(
 	t *testing.T,
 	mapper map[string]testServerResponse,
@@ -490,4 +602,20 @@ func handleTestRequest(
 	w.WriteHeader(respConf.status)
 	_, err := w.Write(respConf.body)
 	require.NoError(t, err)
+}
+
+func generateDocumentWithLinks(t *testing.T, linkCount int) []byte {
+	t.Helper()
+
+	var pageSb strings.Builder
+	fmt.Fprint(&pageSb, "<body>")
+
+	for i := range linkCount {
+		n := i + 1
+		fmt.Fprintf(&pageSb, `<a href="/link-%d">Link %d</a>`, n, n)
+	}
+
+	fmt.Fprint(&pageSb, "</body>")
+
+	return []byte(pageSb.String())
 }
