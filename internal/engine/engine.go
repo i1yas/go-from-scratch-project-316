@@ -41,8 +41,8 @@ type Engine struct {
 	userAgent   string
 	client      *http.Client
 	depth       int
-	pages       map[string]PageReport
-	brokenLinks map[string]BrokenLink
+	pages       map[string]*PageReport
+	brokenLinks map[string]*BrokenLink
 }
 
 // New constructs new crawler engine
@@ -64,8 +64,8 @@ func New(opts Options) (*Engine, error) {
 		userAgent:   opts.UserAgent,
 		client:      client,
 		depth:       opts.Depth,
-		pages:       map[string]PageReport{},
-		brokenLinks: map[string]BrokenLink{},
+		pages:       map[string]*PageReport{},
+		brokenLinks: map[string]*BrokenLink{},
 	}, nil
 }
 
@@ -76,12 +76,12 @@ func (e *Engine) Analyze(ctx context.Context) (Report, error) {
 		return Report{}, err
 	}
 
-	pages := make([]PageReport, len(e.pages))
+	pages := make([]PageReport, 0)
 
-	i := 0
 	for _, page := range e.pages {
-		pages[i] = page
-		i++
+		if page.isComplete {
+			pages = append(pages, *page)
+		}
 	}
 
 	return Report{
@@ -110,6 +110,7 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 		Depth:        depth,
 		DiscoveredAt: time.Now(),
 	}
+	e.pages[pageURL.String()] = &page
 
 	resp, err := e.fetch(ctx, pageURL)
 
@@ -126,7 +127,7 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 				URL:        pageURL.String(),
 				StatusCode: resp.StatusCode,
 			}
-			e.brokenLinks[pageURL.String()] = bl
+			e.brokenLinks[pageURL.String()] = &bl
 			parent.BrokenLinks = append(parent.BrokenLinks, bl)
 		}
 
@@ -145,12 +146,13 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 			resultErr = err
 			break
 		}
+
 		if err != nil {
 			return err
 		}
 	}
 
-	e.pages[pageURL.String()] = page
+	page.isComplete = true
 
 	return resultErr
 }
@@ -188,7 +190,7 @@ func (e *Engine) processDocument(ctx context.Context, rawDocument io.Reader, pag
 	for _, link := range links {
 		bl, isBroken := e.brokenLinks[link.String()]
 		if isBroken {
-			page.BrokenLinks = append(page.BrokenLinks, bl)
+			page.BrokenLinks = append(page.BrokenLinks, *bl)
 			continue
 		}
 

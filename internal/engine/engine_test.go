@@ -105,7 +105,7 @@ func TestEngineAnalyze_PagesFetchedOnce(t *testing.T) {
 	server := setupTestServer(t, host,
 		map[string]testServerResponse{
 			"/":        {status: 200, body: pageContent},
-			"/working": {status: 200},
+			"/working": {status: 200, body: pageContent},
 			"/broken":  {status: 500},
 		},
 		nil,
@@ -115,7 +115,7 @@ func TestEngineAnalyze_PagesFetchedOnce(t *testing.T) {
 
 	e, err := New(Options{
 		URL:        rootURL.String(),
-		Depth:      1,
+		Depth:      5,
 		HTTPClient: client,
 	})
 	require.NoError(t, err)
@@ -126,9 +126,9 @@ func TestEngineAnalyze_PagesFetchedOnce(t *testing.T) {
 	_, err = e.Analyze(t.Context())
 	require.NoError(t, err)
 
-	require.Equal(t, server.calls["/"], 1)
-	require.Equal(t, server.calls["/working"], 1)
-	require.Equal(t, server.calls["/broken"], 1)
+	require.Equal(t, 1, server.calls["/"])
+	require.Equal(t, 1, server.calls["/working"])
+	require.Equal(t, 1, server.calls["/broken"])
 }
 
 func TestEngineAnalyze_RestrictDepth(t *testing.T) {
@@ -283,6 +283,7 @@ func TestEngineAnalyze_CancelContextAfterLinksCollected(t *testing.T) {
 	pageContent := loadFixture(t, "well-formed-page.html")
 
 	reqStarted := make(chan struct{})
+
 	blockReq := make(chan struct{})
 	defer close(blockReq)
 
