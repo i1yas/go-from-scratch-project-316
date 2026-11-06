@@ -122,42 +122,12 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 		page.isComplete = true
 
 		return nil
-	case resp.StatusCode >= 400:
-		if parent != nil {
-			bl := BrokenLink{
-				URL:        pageURL.String(),
-				StatusCode: resp.StatusCode,
-			}
-			e.brokenLinks[pageURL.String()] = &bl
-			parent.BrokenLinks = append(parent.BrokenLinks, bl)
-		}
-
-		return nil
 	default:
-		page.HTTPStatus = resp.StatusCode
-		page.Status = statusText(resp)
-
-		respContentType := resp.Header.Get("Content-Type")
-		if !isHTMLContentType(respContentType) {
-			page.isComplete = true
-			return nil
-		}
-
-		isForeignLink := e.rootURL.Host != pageURL.Host
-		if isForeignLink {
-			page.isComplete = true
-			return nil
-		}
-
-		err := e.processDocument(ctx, resp.Body, &page)
-		if errors.Is(err, context.Canceled) {
-			page.isComplete = true
-			return err
-		}
-
-		page.isComplete = err == nil
-
-		return err
+		return e.processPageResponse(
+			ctx,
+			&page,
+			resp,
+		)
 	}
 }
 
@@ -172,6 +142,53 @@ func (e *Engine) fetch(ctx context.Context, pageURL *url.URL) (*http.Response, e
 	}
 
 	return e.client.Do(req)
+}
+
+func (e *Engine) processPageResponse(
+	ctx context.Context,
+	page *PageReport,
+	resp *http.Response,
+) error {
+	parent := parentPageFromContext(ctx)
+	pageURL := page.URL
+
+	if resp.StatusCode >= 400 {
+		if parent != nil {
+			bl := BrokenLink{
+				URL:        pageURL.String(),
+				StatusCode: resp.StatusCode,
+			}
+			e.brokenLinks[pageURL.String()] = &bl
+			parent.BrokenLinks = append(parent.BrokenLinks, bl)
+		}
+
+		return nil
+	}
+
+	page.HTTPStatus = resp.StatusCode
+	page.Status = statusText(resp)
+
+	respContentType := resp.Header.Get("Content-Type")
+	if !isHTMLContentType(respContentType) {
+		page.isComplete = true
+		return nil
+	}
+
+	isForeignLink := e.rootURL.Host != pageURL.Host
+	if isForeignLink {
+		page.isComplete = true
+		return nil
+	}
+
+	err := e.processDocument(ctx, resp.Body, page)
+	if errors.Is(err, context.Canceled) {
+		page.isComplete = true
+		return err
+	}
+
+	page.isComplete = err == nil
+
+	return err
 }
 
 func (e *Engine) processDocument(ctx context.Context, rawDocument io.Reader, page *PageReport) error {
