@@ -253,7 +253,15 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 
 		cancel()
 
-		require.LessOrEqual(t, server.totalCallsCount(), maxCalls)
+		totalCallsCount := server.totalCallsCount()
+
+		require.Greater(t, totalCallsCount, 0)
+		require.LessOrEqual(t, totalCallsCount, maxCalls)
+
+		serverMinDelay, ok := server.minDelayBetweenRequests()
+		require.True(t, ok)
+
+		require.GreaterOrEqual(t, serverMinDelay, delay)
 
 		<-analyzeEnded
 

@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -69,8 +71,9 @@ type testServerResponse struct {
 }
 
 type testServer struct {
-	srv   *httptest.Server
-	calls map[string]int
+	srv      *httptest.Server
+	calls    map[string]int
+	timeline []time.Time
 }
 
 func setupTestServer(
@@ -78,13 +81,17 @@ func setupTestServer(
 	host string,
 	internalLinksMapper map[string]testServerResponse,
 	foreignLinksMapper map[string]testServerResponse,
-) testServer {
+) *testServer {
 	t.Helper()
 
-	calls := map[string]int{}
+	server := &testServer{
+		calls:    map[string]int{},
+		timeline: []time.Time{},
+	}
 
-	server := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		calls[r.URL.String()]++
+	server.srv = httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		server.calls[r.URL.String()]++
+		server.timeline = append(server.timeline, time.Now())
 
 		if r.Host != host {
 			handleTestRequest(t, foreignLinksMapper, w, r)
@@ -95,22 +102,35 @@ func setupTestServer(
 	}))
 
 	t.Cleanup(func() {
-		server.Close()
+		server.srv.Close()
 	})
 
-	return testServer{
-		srv:   server,
-		calls: calls,
-	}
+	return server
 }
 
 func (ts *testServer) totalCallsCount() int {
-	total := 0
-	for _, count := range ts.calls {
-		total += count
+	return len(ts.timeline)
+}
+
+func (ts *testServer) minDelayBetweenRequests() (time.Duration, bool) {
+	minDelay := time.Duration(math.MaxInt64)
+
+	if len(ts.timeline) == 0 {
+		return minDelay, false
 	}
 
-	return total
+	lastT := ts.timeline[0]
+
+	for i := 1; i < len(ts.timeline); i++ {
+		t := ts.timeline[i]
+
+		delay := t.Sub(lastT)
+		if delay < minDelay {
+			minDelay = delay
+		}
+	}
+
+	return minDelay, true
 }
 
 func handleTestRequest(
