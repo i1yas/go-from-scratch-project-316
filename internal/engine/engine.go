@@ -72,7 +72,7 @@ func New(opts Options) (*Engine, error) {
 // Analyze crawls website
 func (e *Engine) Analyze(ctx context.Context) (Report, error) {
 	err := e.analyzePage(ctx, e.rootURL)
-	if err != nil {
+	if err != nil && !errors.Is(err, context.Canceled) {
 		return Report{}, err
 	}
 
@@ -89,7 +89,7 @@ func (e *Engine) Analyze(ctx context.Context) (Report, error) {
 		Depth:       e.depth,
 		GeneratedAt: time.Now(),
 		Pages:       pages,
-	}, nil
+	}, err
 }
 
 func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
@@ -112,6 +112,8 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 	}
 
 	resp, err := e.fetch(ctx, pageURL)
+
+	var resultErr error
 
 	switch {
 	case errors.Is(err, context.Canceled):
@@ -139,6 +141,10 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 		}
 
 		err := e.processDocument(ctx, resp.Body, &page)
+		if errors.Is(err, context.Canceled) {
+			resultErr = err
+			break
+		}
 		if err != nil {
 			return err
 		}
@@ -146,7 +152,7 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 
 	e.pages[pageURL.String()] = page
 
-	return nil
+	return resultErr
 }
 
 func (e *Engine) fetch(ctx context.Context, pageURL *url.URL) (*http.Response, error) {
