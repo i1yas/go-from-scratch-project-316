@@ -114,13 +114,14 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 
 	resp, err := e.fetch(ctx, pageURL)
 
-	var resultErr error
-
 	switch {
 	case errors.Is(err, context.Canceled):
 		return err
 	case err != nil:
 		page.Error = err.Error()
+		page.isComplete = true
+
+		return nil
 	case resp.StatusCode >= 400:
 		if parent != nil {
 			bl := BrokenLink{
@@ -138,23 +139,20 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 
 		respContentType := resp.Header.Get("Content-Type")
 		if !isHTMLContentType(respContentType) {
-			break
+			page.isComplete = true
+			return nil
 		}
 
 		err := e.processDocument(ctx, resp.Body, &page)
 		if errors.Is(err, context.Canceled) {
-			resultErr = err
-			break
-		}
-
-		if err != nil {
+			page.isComplete = true
 			return err
 		}
+
+		page.isComplete = err == nil
+
+		return err
 	}
-
-	page.isComplete = true
-
-	return resultErr
 }
 
 func (e *Engine) fetch(ctx context.Context, pageURL *url.URL) (*http.Response, error) {
