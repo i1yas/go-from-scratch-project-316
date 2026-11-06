@@ -23,7 +23,7 @@ type PageReport struct {
 	SEO          PageSEO
 	BrokenLinks  []BrokenLink
 	DiscoveredAt time.Time
-	isComplete   bool
+	isIncluded   bool
 }
 
 // BrokenLink contains information about broken link

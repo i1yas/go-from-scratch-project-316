@@ -79,7 +79,7 @@ func (e *Engine) Analyze(ctx context.Context) (Report, error) {
 	pages := make([]PageReport, 0)
 
 	for _, page := range e.pages {
-		if page.isComplete {
+		if page.isIncluded {
 			pages = append(pages, *page)
 		}
 	}
@@ -119,7 +119,7 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 		return err
 	case err != nil:
 		page.Error = err.Error()
-		page.isComplete = true
+		page.isIncluded = true
 
 		return nil
 	default:
@@ -174,13 +174,13 @@ func (e *Engine) processPageResponse(
 
 	respContentType := resp.Header.Get("Content-Type")
 	if !isHTMLContentType(respContentType) {
-		page.isComplete = true
+		page.isIncluded = true
 		return nil
 	}
 
 	err := e.processDocument(ctx, resp.Body, page)
 	if errors.Is(err, context.Canceled) {
-		page.isComplete = true
+		page.isIncluded = true
 		return err
 	}
 
@@ -188,7 +188,7 @@ func (e *Engine) processPageResponse(
 		return err
 	}
 
-	page.isComplete = true
+	page.isIncluded = true
 
 	return nil
 }
