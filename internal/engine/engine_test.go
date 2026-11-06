@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAnalyze_WellFormedPage(t *testing.T) {
+func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 	pageContent := loadFixture(t, "well-formed-page.html")
 	host := "test.com"
 
@@ -95,7 +95,7 @@ func TestAnalyze_WellFormedPage(t *testing.T) {
 	requireReportMatches(t, want, got)
 }
 
-func TestAnalyze_PagesFetchedOnce(t *testing.T) {
+func TestEngineAnalyze_PagesFetchedOnce(t *testing.T) {
 	pageContent := loadFixture(t, "well-formed-page.html")
 	host := "test.com"
 
@@ -131,7 +131,7 @@ func TestAnalyze_PagesFetchedOnce(t *testing.T) {
 	require.Equal(t, server.calls["/broken"], 1)
 }
 
-func TestAnalyze_RestrictDepth(t *testing.T) {
+func TestEngineAnalyze_RestrictDepth(t *testing.T) {
 	pageContent := loadFixture(t, "well-formed-page.html")
 	host := "test.com"
 
@@ -163,7 +163,7 @@ func TestAnalyze_RestrictDepth(t *testing.T) {
 	require.Equal(t, 1, len(got.Pages), "page count")
 }
 
-func TestAnalyze_PageWithoutLinks(t *testing.T) {
+func TestEngineAnalyze_PageWithoutLinks(t *testing.T) {
 	pageContent := loadFixture(t, "page-without-links.html")
 
 	rootURL, err := url.Parse("http://test.com")
@@ -210,7 +210,7 @@ func TestAnalyze_PageWithoutLinks(t *testing.T) {
 	requireReportMatches(t, want, got)
 }
 
-func TestAnalyze_NetworkError(t *testing.T) {
+func TestEngineAnalyze_NetworkError(t *testing.T) {
 	server := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		hj, ok := w.(http.Hijacker)
 		if !ok {
@@ -257,7 +257,7 @@ func TestAnalyze_NetworkError(t *testing.T) {
 	requireReportMatches(t, want, got)
 }
 
-func TestAnalyze_CancelContextBeforeStart(t *testing.T) {
+func TestEngineAnalyze_CancelContextBeforeStart(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
@@ -275,7 +275,7 @@ func TestAnalyze_CancelContextBeforeStart(t *testing.T) {
 	require.ErrorIs(t, err, context.Canceled)
 }
 
-func TestAnalyze_CancelContextAfterLinksCollected(t *testing.T) {
+func TestEngineAnalyze_CancelContextAfterLinksCollected(t *testing.T) {
 	var wg sync.WaitGroup
 
 	ctx, cancel := context.WithCancel(t.Context())
