@@ -37,12 +37,14 @@ type Options struct {
 
 // Engine is crawler engine
 type Engine struct {
-	rootURL     *url.URL
-	userAgent   string
-	client      *http.Client
-	depth       int
-	pages       map[string]*PageReport
-	brokenLinks map[string]*BrokenLink
+	rootURL         *url.URL
+	userAgent       string
+	delay           time.Duration
+	client          *http.Client
+	depth           int
+	pages           map[string]*PageReport
+	brokenLinks     map[string]*BrokenLink
+	lastRequestTime *time.Time
 }
 
 // New constructs new crawler engine
@@ -62,6 +64,7 @@ func New(opts Options) (*Engine, error) {
 	return &Engine{
 		rootURL:     rootURL,
 		userAgent:   opts.UserAgent,
+		delay:       opts.Delay,
 		client:      client,
 		depth:       opts.Depth,
 		pages:       map[string]*PageReport{},
@@ -132,6 +135,11 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 }
 
 func (e *Engine) fetch(ctx context.Context, pageURL *url.URL) (*http.Response, error) {
+	if e.lastRequestTime != nil && e.delay > 0 {
+		delay := e.delay - time.Since(*e.lastRequestTime)
+		time.Sleep(delay)
+	}
+
 	req, err := http.NewRequestWithContext(ctx, "GET", pageURL.String(), nil)
 	if err != nil {
 		return nil, err
@@ -140,6 +148,9 @@ func (e *Engine) fetch(ctx context.Context, pageURL *url.URL) (*http.Response, e
 	if e.userAgent != "" {
 		req.Header.Set("User-Agent", e.userAgent)
 	}
+
+	t := time.Now()
+	e.lastRequestTime = &t
 
 	return e.client.Do(req)
 }
