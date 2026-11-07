@@ -164,14 +164,19 @@ func (e *Engine) processPageResponse(
 	pageURL := page.URL
 
 	if resp.StatusCode >= 400 {
-		if parent != nil {
-			bl := BrokenLink{
-				URL:        pageURL.String(),
-				StatusCode: resp.StatusCode,
-			}
-			e.brokenLinks[pageURL.String()] = &bl
-			parent.BrokenLinks = append(parent.BrokenLinks, bl)
+		if parent == nil {
+			page.HTTPStatus = resp.StatusCode
+			page.Status = statusText(resp)
+			page.isIncluded = true
+			return nil
 		}
+
+		bl := BrokenLink{
+			URL:        pageURL.String(),
+			StatusCode: resp.StatusCode,
+		}
+		e.brokenLinks[pageURL.String()] = &bl
+		parent.BrokenLinks = append(parent.BrokenLinks, bl)
 
 		return nil
 	}

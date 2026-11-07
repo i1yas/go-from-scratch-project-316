@@ -93,6 +93,42 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 	requireReportMatches(t, want, got)
 }
 
+func TestEningeAnalyze_RootURLFailed(t *testing.T) {
+	server := setupTestServer(t, "test.com",
+		map[string]testServerResponse{
+			"/": {status: 500},
+		},
+		nil,
+	)
+
+	rootURL, err := url.Parse("http://test.com")
+	require.NoError(t, err)
+
+	e, err := New(Options{
+		URL:        rootURL.String(),
+		HTTPClient: server.srv.Client(),
+	})
+	require.NoError(t, err)
+
+	want := Report{
+		RootURL: rootURL.String(),
+		Depth:   0,
+		Pages: []PageReport{
+			{
+				URL:        rootURL,
+				Depth:      0,
+				HTTPStatus: 500,
+				Status:     "internal server error",
+			},
+		},
+	}
+
+	got, err := e.Analyze(t.Context())
+	require.NoError(t, err)
+
+	requireReportMatches(t, want, got)
+}
+
 func TestEngineAnalyze_PagesFetchedOnce(t *testing.T) {
 	pageContent := loadFixture(t, "well-formed-page.html")
 	host := "test.com"
