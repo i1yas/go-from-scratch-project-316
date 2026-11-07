@@ -42,6 +42,7 @@ type Engine struct {
 	delay           time.Duration
 	client          *http.Client
 	depth           int
+	retries         int
 	pages           map[string]*PageReport
 	brokenLinks     map[string]*BrokenLink
 	lastRequestTime *time.Time
@@ -67,6 +68,7 @@ func New(opts Options) (*Engine, error) {
 		delay:       opts.Delay,
 		client:      client,
 		depth:       opts.Depth,
+		retries:     opts.Retries,
 		pages:       map[string]*PageReport{},
 		brokenLinks: map[string]*BrokenLink{},
 	}, nil
@@ -135,11 +137,6 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 }
 
 func (e *Engine) fetch(ctx context.Context, pageURL *url.URL) (*http.Response, error) {
-	if e.lastRequestTime != nil && e.delay > 0 {
-		delay := e.delay - time.Since(*e.lastRequestTime)
-		time.Sleep(delay)
-	}
-
 	req, err := http.NewRequestWithContext(ctx, "GET", pageURL.String(), nil)
 	if err != nil {
 		return nil, err
@@ -149,10 +146,41 @@ func (e *Engine) fetch(ctx context.Context, pageURL *url.URL) (*http.Response, e
 		req.Header.Set("User-Agent", e.userAgent)
 	}
 
-	t := time.Now()
-	e.lastRequestTime = &t
+	retriesLeft := e.retries
 
-	return e.client.Do(req)
+	for {
+		e.waitRequestDelay(ctx)
+
+		t := time.Now()
+		e.lastRequestTime = &t
+
+		resp, err := e.client.Do(req)
+		if errors.Is(err, context.Canceled) {
+			return nil, err
+		}
+
+		shouldRetry := (err != nil || resp.StatusCode >= 500) && retriesLeft > 0
+
+		if shouldRetry {
+			retriesLeft--
+			continue
+		}
+
+		return resp, err
+	}
+}
+
+func (e *Engine) waitRequestDelay(ctx context.Context) {
+	if e.lastRequestTime != nil && e.delay > 0 {
+		delay := e.delay - time.Since(*e.lastRequestTime)
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(delay):
+			return
+		}
+	}
 }
 
 func (e *Engine) processPageResponse(
@@ -168,6 +196,7 @@ func (e *Engine) processPageResponse(
 			page.HTTPStatus = resp.StatusCode
 			page.Status = statusText(resp)
 			page.isIncluded = true
+
 			return nil
 		}
 

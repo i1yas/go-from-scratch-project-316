@@ -252,7 +252,7 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 		defer cancel()
 
 		delay := time.Millisecond
-		maxCalls := int(analyzeDuration / delay)
+		maxCalls := int(analyzeDuration/delay) + 1 // NOTE: first call does not have delay
 
 		require.Less(t, maxCalls, linkCount)
 
@@ -289,6 +289,10 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 
 		cancel()
 
+		<-analyzeEnded
+
+		delayAfterCancel := time.Since(cancelStart)
+
 		totalCallsCount := server.totalCallsCount()
 
 		require.Greater(t, totalCallsCount, 0)
@@ -299,11 +303,79 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 
 		require.GreaterOrEqual(t, serverMinDelay, delay)
 
-		<-analyzeEnded
-
-		delayAfterCancel := time.Since(cancelStart)
-		require.Less(t, delayAfterCancel, delay)
+		require.Less(
+			t, delayAfterCancel, delay/2,
+			"cancel delay should be closer to 0 than to request delay",
+		)
 	})
+}
+
+func TestEngineAnalyze_Retries(t *testing.T) {
+	cases := []struct {
+		name        string
+		serverFails int
+		retries     int
+		wantCalls   int
+		wantStatus  int
+	}{
+		{
+			name:        "enough retries, success",
+			serverFails: 2,
+			retries:     3,
+			wantCalls:   3,
+			wantStatus:  200,
+		},
+		{
+			name:        "just enough retries, success",
+			serverFails: 3,
+			retries:     3,
+			wantCalls:   4,
+			wantStatus:  200,
+		},
+		{
+			name:        "not enough retires, record failure",
+			serverFails: 4,
+			retries:     3,
+			wantCalls:   4,
+			wantStatus:  500,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			serverFailsLeft := tc.serverFails
+
+			server := setupTestServer(t, "test.com", map[string]testServerResponse{
+				"/": {fn: func(w http.ResponseWriter, _ *http.Request) {
+					if serverFailsLeft > 0 {
+						serverFailsLeft--
+
+						w.WriteHeader(500)
+
+						return
+					}
+
+					w.WriteHeader(200)
+				}},
+			}, nil)
+
+			e, err := New(Options{
+				URL:        "http://test.com",
+				HTTPClient: server.srv.Client(),
+				Retries:    tc.retries,
+			})
+			require.NoError(t, err)
+
+			got, err := e.Analyze(t.Context())
+			require.NoError(t, err)
+
+			require.Equal(t, 1, len(got.Pages), "pages amount")
+
+			gotPage := got.Pages[0]
+			require.Equal(t, gotPage.HTTPStatus, tc.wantStatus, "status")
+			require.Equal(t, tc.wantCalls, server.totalCallsCount())
+		})
+	}
 }
 
 func TestEngineAnalyze_PageWithoutLinks(t *testing.T) {
