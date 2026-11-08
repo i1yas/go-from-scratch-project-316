@@ -170,7 +170,8 @@ func (e *Engine) fetch(ctx context.Context, pageURL *url.URL) (*http.Response, e
 			return nil, err
 		}
 
-		shouldRetry := (err != nil || resp.StatusCode >= 500) && retriesLeft > 0
+		shouldRetry := retriesLeft > 0 &&
+			(err != nil || isRetriableStatus(resp.StatusCode))
 
 		if shouldRetry {
 			retriesLeft--

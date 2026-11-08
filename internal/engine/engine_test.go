@@ -422,7 +422,7 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 			},
 		},
 		{
-			name:            "not enough retires, record status",
+			name:            "not enough retires, record status 500",
 			serverFails:     4,
 			retries:         3,
 			wantCalls:       4,
@@ -431,6 +431,18 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 			wantStatus:      500,
 			onServerFail: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(500)
+			},
+		},
+		{
+			name:            "not enough retires, record status 429",
+			serverFails:     4,
+			retries:         3,
+			wantCalls:       4,
+			wantBrokenLinks: 1,
+			wantPages:       1,
+			wantStatus:      429,
+			onServerFail: func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(429)
 			},
 		},
 		{
