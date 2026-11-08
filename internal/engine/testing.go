@@ -103,6 +103,7 @@ func setupTestServer(
 	}))
 
 	client := server.srv.Client()
+	client.Transport.(*http.Transport).DisableKeepAlives = true // nolint:forcetypeassert
 	server.client = client
 
 	t.Cleanup(func() {

@@ -466,12 +466,9 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 				}},
 			}, nil)
 
-			client := server.client
-			client.Transport.(*http.Transport).DisableKeepAlives = true // nolint:forcetypeassert
-
 			e, err := New(Options{
 				URL:        "http://test.com",
-				HTTPClient: client,
+				HTTPClient: server.client,
 				Depth:      1,
 				Retries:    tc.retries,
 			})
