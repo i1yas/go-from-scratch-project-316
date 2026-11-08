@@ -13,6 +13,16 @@ type Report struct {
 	Pages       []PageReport
 }
 
+func (r Report) findPageByRawURL(pageURL string) (PageReport, bool) {
+	for _, p := range r.Pages {
+		if p.URL.String() == pageURL {
+			return p, true
+		}
+	}
+
+	return PageReport{}, false
+}
+
 // PageReport contains page report
 type PageReport struct {
 	URL          *url.URL

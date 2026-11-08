@@ -310,13 +310,15 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 	})
 }
 
-func TestEngineAnalyze_Retries(t *testing.T) {
+func TestEngineAnalyze_RetriesOnRootURL(t *testing.T) {
 	cases := []struct {
-		name        string
-		serverFails int
-		retries     int
-		wantCalls   int
-		wantStatus  int
+		name         string
+		serverFails  int
+		retries      int
+		wantCalls    int
+		wantStatus   int
+		wantError    string
+		onServerFail func(w http.ResponseWriter, r *http.Request)
 	}{
 		{
 			name:        "enough retries, success",
@@ -324,6 +326,9 @@ func TestEngineAnalyze_Retries(t *testing.T) {
 			retries:     3,
 			wantCalls:   3,
 			wantStatus:  200,
+			onServerFail: func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(500)
+			},
 		},
 		{
 			name:        "just enough retries, success",
@@ -331,13 +336,27 @@ func TestEngineAnalyze_Retries(t *testing.T) {
 			retries:     3,
 			wantCalls:   4,
 			wantStatus:  200,
+			onServerFail: func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(500)
+			},
 		},
 		{
-			name:        "not enough retires, record failure",
+			name:        "not enough retires, record status",
 			serverFails: 4,
 			retries:     3,
 			wantCalls:   4,
 			wantStatus:  500,
+			onServerFail: func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(500)
+			},
+		},
+		{
+			name:         "not enough retires, record error",
+			serverFails:  4,
+			retries:      3,
+			wantCalls:    4,
+			wantError:    io.EOF.Error(),
+			onServerFail: hijackAndCloseHandler(t),
 		},
 	}
 
@@ -346,11 +365,11 @@ func TestEngineAnalyze_Retries(t *testing.T) {
 			serverFailsLeft := tc.serverFails
 
 			server := setupTestServer(t, "test.com", map[string]testServerResponse{
-				"/": {fn: func(w http.ResponseWriter, _ *http.Request) {
+				"/": {fn: func(w http.ResponseWriter, r *http.Request) {
 					if serverFailsLeft > 0 {
 						serverFailsLeft--
 
-						w.WriteHeader(500)
+						tc.onServerFail(w, r)
 
 						return
 					}
@@ -373,7 +392,117 @@ func TestEngineAnalyze_Retries(t *testing.T) {
 
 			gotPage := got.Pages[0]
 			require.Equal(t, gotPage.HTTPStatus, tc.wantStatus, "status")
+			require.Contains(t, gotPage.Error, tc.wantError, "error")
 			require.Equal(t, tc.wantCalls, server.totalCallsCount())
+		})
+	}
+}
+
+func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
+	cases := []struct {
+		name            string
+		serverFails     int
+		retries         int
+		wantCalls       int
+		wantPages       int
+		wantBrokenLinks int
+		wantStatus      int
+		wantError       error
+		onServerFail    func(w http.ResponseWriter, r *http.Request)
+	}{
+		{
+			name:            "enough retries, no broken links",
+			serverFails:     2,
+			retries:         3,
+			wantCalls:       3,
+			wantPages:       2,
+			wantBrokenLinks: 0,
+			onServerFail: func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(500)
+			},
+		},
+		{
+			name:            "just enough retries, no broken links",
+			serverFails:     3,
+			retries:         3,
+			wantCalls:       4,
+			wantPages:       2,
+			wantBrokenLinks: 0,
+			onServerFail: func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(500)
+			},
+		},
+		{
+			name:            "not enough retires, record status",
+			serverFails:     4,
+			retries:         3,
+			wantCalls:       4,
+			wantBrokenLinks: 1,
+			wantPages:       1,
+			wantStatus:      500,
+			onServerFail: func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(500)
+			},
+		},
+		{
+			name:            "not enough retires, record error",
+			serverFails:     4,
+			retries:         3,
+			wantCalls:       4,
+			wantPages:       1,
+			wantBrokenLinks: 1,
+			wantError:       io.EOF,
+			onServerFail:    hijackAndCloseHandler(t),
+		},
+	}
+
+	pageContent := loadFixture(t, "page-with-one-link.html")
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			serverFailsLeft := tc.serverFails
+
+			server := setupTestServer(t, "test.com", map[string]testServerResponse{
+				"/": {status: 200, body: pageContent},
+				"/link": {fn: func(w http.ResponseWriter, r *http.Request) {
+					if serverFailsLeft > 0 {
+						serverFailsLeft--
+
+						tc.onServerFail(w, r)
+
+						return
+					}
+
+					w.WriteHeader(200)
+				}},
+			}, nil)
+
+			client := server.srv.Client()
+			client.Transport.(*http.Transport).DisableKeepAlives = true // nolint:forcetypeassert
+
+			e, err := New(Options{
+				URL:        "http://test.com",
+				HTTPClient: client,
+				Depth:      1,
+				Retries:    tc.retries,
+			})
+			require.NoError(t, err)
+
+			got, err := e.Analyze(t.Context())
+			require.NoError(t, err)
+
+			require.Equal(t, tc.wantPages, len(got.Pages), "pages amount")
+
+			gotPage, ok := got.findPageByRawURL("http://test.com")
+			require.True(t, ok, "page found")
+
+			require.Equal(t, tc.wantBrokenLinks, len(gotPage.BrokenLinks), "amount of broken links")
+
+			if tc.wantBrokenLinks > 0 {
+				gotBrokenLink := gotPage.BrokenLinks[0]
+				require.Equal(t, tc.wantStatus, gotBrokenLink.StatusCode, "status")
+				require.ErrorIs(t, gotBrokenLink.Err, tc.wantError)
+			}
 		})
 	}
 }
@@ -426,20 +555,7 @@ func TestEngineAnalyze_PageWithoutLinks(t *testing.T) {
 }
 
 func TestEngineAnalyze_NetworkError(t *testing.T) {
-	server := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		hj, ok := w.(http.Hijacker)
-		if !ok {
-			t.Fatal("hijacking not supported")
-		}
-
-		conn, _, err := hj.Hijack()
-		if err != nil {
-			t.Error(err)
-			return
-		}
-
-		require.NoError(t, conn.Close())
-	}))
+	server := httptest.NewTestServer(t, http.HandlerFunc(hijackAndCloseHandler(t)))
 
 	client := server.Client()
 

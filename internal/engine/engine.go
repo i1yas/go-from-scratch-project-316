@@ -123,8 +123,19 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 	case errors.Is(err, context.Canceled):
 		return err
 	case err != nil:
-		page.Error = err.Error()
-		page.isIncluded = true
+		if parent == nil {
+			page.Error = err.Error()
+			page.isIncluded = true
+
+			return nil
+		}
+
+		bl := BrokenLink{
+			URL: page.URL.String(),
+			Err: err,
+		}
+		e.brokenLinks[pageURL.String()] = &bl
+		parent.BrokenLinks = append(parent.BrokenLinks, bl)
 
 		return nil
 	default:

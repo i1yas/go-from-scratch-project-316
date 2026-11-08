@@ -172,3 +172,22 @@ func generateDocumentWithLinks(t *testing.T, linkCount int) []byte {
 
 	return []byte(pageSb.String())
 }
+
+func hijackAndCloseHandler(t *testing.T) http.HandlerFunc {
+	t.Helper()
+
+	return func(w http.ResponseWriter, _ *http.Request) {
+		hj, ok := w.(http.Hijacker)
+		if !ok {
+			t.Fatal("hijacking not supported")
+		}
+
+		conn, _, err := hj.Hijack()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		require.NoError(t, conn.Close())
+	}
+}
