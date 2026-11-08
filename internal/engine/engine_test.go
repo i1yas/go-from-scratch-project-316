@@ -34,8 +34,6 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 		},
 	)
 
-	client := server.srv.Client()
-
 	want := Report{
 		RootURL: rootURL.String(),
 		Depth:   1,
@@ -83,7 +81,7 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 		URL:        rootURL.String(),
 		Depth:      1,
 		UserAgent:  "test",
-		HTTPClient: client,
+		HTTPClient: server.client,
 	})
 	require.NoError(t, err)
 
@@ -106,7 +104,7 @@ func TestEningeAnalyze_RootURLFailed(t *testing.T) {
 
 	e, err := New(Options{
 		URL:        rootURL.String(),
-		HTTPClient: server.srv.Client(),
+		HTTPClient: server.client,
 	})
 	require.NoError(t, err)
 
@@ -145,12 +143,10 @@ func TestEngineAnalyze_PagesFetchedOnce(t *testing.T) {
 		nil,
 	)
 
-	client := server.srv.Client()
-
 	e, err := New(Options{
 		URL:        rootURL.String(),
 		Depth:      5,
-		HTTPClient: client,
+		HTTPClient: server.client,
 	})
 	require.NoError(t, err)
 
@@ -181,13 +177,11 @@ func TestEngineAnalyze_RestrictDepth(t *testing.T) {
 		nil,
 	)
 
-	client := server.srv.Client()
-
 	e, err := New(Options{
 		URL:        rootURL.String(),
 		Depth:      0,
 		UserAgent:  "test",
-		HTTPClient: client,
+		HTTPClient: server.client,
 	})
 	require.NoError(t, err)
 
@@ -221,13 +215,11 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 			nil,
 		)
 
-		client := server.srv.Client()
-
 		e, err := New(Options{
 			URL:        rootURL.String(),
 			Depth:      100,
 			UserAgent:  "test",
-			HTTPClient: client,
+			HTTPClient: server.client,
 		})
 		require.NoError(t, err)
 
@@ -265,14 +257,12 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 			nil,
 		)
 
-		client := server.srv.Client()
-
 		e, err := New(Options{
 			URL:        rootURL.String(),
 			Depth:      100,
 			Delay:      delay,
 			UserAgent:  "test",
-			HTTPClient: client,
+			HTTPClient: server.client,
 		})
 		require.NoError(t, err)
 
@@ -380,7 +370,7 @@ func TestEngineAnalyze_RetriesOnRootURL(t *testing.T) {
 
 			e, err := New(Options{
 				URL:        "http://test.com",
-				HTTPClient: server.srv.Client(),
+				HTTPClient: server.client,
 				Retries:    tc.retries,
 			})
 			require.NoError(t, err)
@@ -477,7 +467,7 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 				}},
 			}, nil)
 
-			client := server.srv.Client()
+			client := server.client
 			client.Transport.(*http.Transport).DisableKeepAlives = true // nolint:forcetypeassert
 
 			e, err := New(Options{
@@ -520,8 +510,6 @@ func TestEngineAnalyze_PageWithoutLinks(t *testing.T) {
 		nil,
 	)
 
-	client := server.srv.Client()
-
 	want := Report{
 		RootURL: rootURL.String(),
 		Depth:   1,
@@ -544,7 +532,7 @@ func TestEngineAnalyze_PageWithoutLinks(t *testing.T) {
 		URL:        rootURL.String(),
 		Depth:      1,
 		UserAgent:  "test",
-		HTTPClient: client,
+		HTTPClient: server.client,
 	})
 	require.NoError(t, err)
 
@@ -632,7 +620,7 @@ func TestEngineAnalyze_CancelContextAfterLinksCollected(t *testing.T) {
 
 	e, err := New(Options{
 		URL:        rootURL.String(),
-		HTTPClient: server.srv.Client(),
+		HTTPClient: server.client,
 		Depth:      1,
 	})
 	require.NoError(t, err)

@@ -72,6 +72,7 @@ type testServerResponse struct {
 
 type testServer struct {
 	srv      *httptest.Server
+	client   *http.Client
 	calls    map[string]int
 	timeline []time.Time
 }
@@ -100,6 +101,9 @@ func setupTestServer(
 
 		handleTestRequest(t, internalLinksMapper, w, r)
 	}))
+
+	client := server.srv.Client()
+	server.client = client
 
 	t.Cleanup(func() {
 		server.srv.Close()
