@@ -676,13 +676,9 @@ func TestEngineAnalyze_CancelContextAfterLinksCollected(t *testing.T) {
 
 func TestEngine_InvalidOptions(t *testing.T) {
 	t.Run("invalid root url", func(t *testing.T) {
-		server := httptest.NewTestServer(
-			t, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}),
-		)
-
 		_, err := New(Options{
 			URL:        "invalid",
-			HTTPClient: server.Client(),
+			HTTPClient: &http.Client{},
 		})
 		require.ErrorIs(t, err, ErrInvalidRootURL)
 	})
