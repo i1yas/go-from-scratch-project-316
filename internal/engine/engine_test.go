@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"sync"
 	"testing"
@@ -543,9 +542,9 @@ func TestEngineAnalyze_PageWithoutLinks(t *testing.T) {
 }
 
 func TestEngineAnalyze_NetworkError(t *testing.T) {
-	server := httptest.NewTestServer(t, http.HandlerFunc(hijackAndCloseHandler(t)))
-
-	client := server.Client()
+	server := setupTestServer(t, "test.com", map[string]testServerResponse{
+		"/": {fn: hijackAndCloseHandler(t)},
+	}, nil)
 
 	rootURL, err := url.Parse("http://test.com")
 	require.NoError(t, err)
@@ -566,7 +565,7 @@ func TestEngineAnalyze_NetworkError(t *testing.T) {
 		URL:        rootURL.String(),
 		Depth:      1,
 		UserAgent:  "test",
-		HTTPClient: client,
+		HTTPClient: server.client,
 	})
 	require.NoError(t, err)
 
@@ -580,13 +579,11 @@ func TestEngineAnalyze_CancelContextBeforeStart(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	server := httptest.NewTestServer(
-		t, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}),
-	)
+	server := setupTestServer(t, "test.com", nil, nil)
 
 	e, err := New(Options{
 		URL:        "http://test.com",
-		HTTPClient: server.Client(),
+		HTTPClient: server.client,
 	})
 	require.NoError(t, err)
 
