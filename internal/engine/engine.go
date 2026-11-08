@@ -7,9 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
-	"unicode"
 
 	"github.com/PuerkitoBio/goquery"
 
@@ -206,7 +204,7 @@ func (e *Engine) processPageResponse(
 	if resp.StatusCode >= 400 {
 		if parent == nil {
 			page.HTTPStatus = resp.StatusCode
-			page.Status = statusText(resp)
+			page.Status = statusText(resp.Status)
 			page.isIncluded = true
 
 			return nil
@@ -227,7 +225,7 @@ func (e *Engine) processPageResponse(
 	}
 
 	page.HTTPStatus = resp.StatusCode
-	page.Status = statusText(resp)
+	page.Status = statusText(resp.Status)
 
 	respContentType := resp.Header.Get("Content-Type")
 	if !isHTMLContentType(respContentType) {
@@ -300,18 +298,4 @@ func parentPageFromContext(ctx context.Context) *PageReport {
 	}
 
 	return page
-}
-
-func isHTMLContentType(contentType string) bool {
-	return strings.HasPrefix(contentType, "text/html")
-}
-
-func statusText(resp *http.Response) string {
-	for i, r := range resp.Status {
-		if unicode.IsSpace(r) {
-			return strings.ToLower(resp.Status[i+1:])
-		}
-	}
-
-	return ""
 }
