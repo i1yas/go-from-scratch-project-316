@@ -181,15 +181,20 @@ func (e *Engine) fetch(ctx context.Context, pageURL *url.URL) (*http.Response, e
 }
 
 func (e *Engine) waitRequestDelay(ctx context.Context) {
-	if e.lastRequestTime != nil && e.delay > 0 {
-		delay := e.delay - time.Since(*e.lastRequestTime)
+	if e.lastRequestTime == nil {
+		return
+	}
 
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(delay):
-			return
-		}
+	delay := e.delay - time.Since(*e.lastRequestTime)
+	if delay < 0 {
+		return
+	}
+
+	select {
+	case <-ctx.Done():
+		return
+	case <-time.After(delay):
+		return
 	}
 }
 
