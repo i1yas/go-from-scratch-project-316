@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -75,6 +76,7 @@ type testServer struct {
 	client   *http.Client
 	calls    map[string]int
 	timeline []time.Time
+	mu       sync.Mutex
 }
 
 func setupTestServer(
@@ -88,11 +90,14 @@ func setupTestServer(
 	server := &testServer{
 		calls:    map[string]int{},
 		timeline: []time.Time{},
+		mu:       sync.Mutex{},
 	}
 
 	server.srv = httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		server.mu.Lock()
 		server.calls[r.URL.String()]++
 		server.timeline = append(server.timeline, time.Now())
+		server.mu.Unlock()
 
 		if r.Host != host {
 			handleTestRequest(t, foreignLinksMapper, w, r)
@@ -114,10 +119,16 @@ func setupTestServer(
 }
 
 func (ts *testServer) totalCallsCount() int {
+	defer ts.mu.Unlock()
+	ts.mu.Lock()
+
 	return len(ts.timeline)
 }
 
 func (ts *testServer) minDelayBetweenRequests() (time.Duration, bool) {
+	defer ts.mu.Unlock()
+	ts.mu.Lock()
+
 	minDelay := time.Duration(math.MaxInt64)
 
 	if len(ts.timeline) == 0 {
