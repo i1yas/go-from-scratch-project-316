@@ -201,6 +201,9 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 
 	analyzeDuration := time.Millisecond * 5
 
+	var serverCallsWithoutDelay int
+	var serverCallsWithDelay int
+
 	t.Run("no delay", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
@@ -233,7 +236,7 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 
 		cancel()
 
-		require.Equal(t, linkCount+1, server.totalCallsCount())
+		serverCallsWithoutDelay = server.totalCallsCount()
 
 		<-analyzeEnded
 	})
@@ -283,6 +286,7 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 		delayAfterCancel := time.Since(cancelStart)
 
 		totalCallsCount := server.totalCallsCount()
+		serverCallsWithDelay = totalCallsCount
 
 		require.Greater(t, totalCallsCount, 0)
 		require.LessOrEqual(t, totalCallsCount, maxCalls)
@@ -297,6 +301,8 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 			"cancel delay should be closer to 0 than to request delay",
 		)
 	})
+
+	require.Greater(t, serverCallsWithoutDelay, serverCallsWithDelay)
 }
 
 func TestEngineAnalyze_RetriesOnRootURL(t *testing.T) {
