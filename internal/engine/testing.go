@@ -144,6 +144,8 @@ func (ts *testServer) minDelayBetweenRequests() (time.Duration, bool) {
 		if delay < minDelay {
 			minDelay = delay
 		}
+
+		lastT = t
 	}
 
 	return minDelay, true
