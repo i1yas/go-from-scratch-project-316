@@ -277,13 +277,9 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 
 		time.Sleep(analyzeDuration)
 
-		cancelStart := time.Now()
-
 		cancel()
 
 		<-analyzeEnded
-
-		delayAfterCancel := time.Since(cancelStart)
 
 		totalCallsCount := server.totalCallsCount()
 		serverCallsWithDelay = totalCallsCount
@@ -295,14 +291,54 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 		require.True(t, ok)
 
 		require.GreaterOrEqual(t, serverMinDelay, delay)
-
-		require.Less(
-			t, delayAfterCancel, delay/2,
-			"cancel delay should be closer to 0 than to request delay",
-		)
 	})
 
 	require.Greater(t, serverCallsWithoutDelay, serverCallsWithDelay)
+
+	t.Run("stop delay after cancel", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second*20)
+		defer cancel()
+
+		delay := time.Hour
+
+		analyzeEnded := make(chan struct{})
+
+		server := setupTestServer(t, host,
+			map[string]testServerResponse{
+				"/": {status: 200, body: pageContent},
+			},
+			nil,
+		)
+
+		e, err := New(Options{
+			URL:        rootURL.String(),
+			Depth:      100,
+			Delay:      delay,
+			UserAgent:  "test",
+			HTTPClient: server.client,
+		})
+		require.NoError(t, err)
+
+		go func() {
+			defer close(analyzeEnded)
+
+			_, err = e.Analyze(ctx)
+			require.ErrorIs(t, err, context.Canceled)
+		}()
+
+		time.Sleep(analyzeDuration)
+
+		cancelStart := time.Now()
+
+		cancel()
+
+		<-analyzeEnded
+
+		delayAfterCancel := time.Since(cancelStart)
+		require.Less(t, delayAfterCancel, time.Second*5)
+
+		require.Greater(t, server.totalCallsCount(), 0)
+	})
 }
 
 func TestEngineAnalyze_RetriesOnRootURL(t *testing.T) {
