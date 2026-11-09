@@ -94,10 +94,14 @@ func setupTestServer(
 	}
 
 	server.srv = httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		server.mu.Lock()
-		server.calls[r.URL.String()]++
-		server.timeline = append(server.timeline, time.Now())
-		server.mu.Unlock()
+		reqT := time.Now()
+
+		defer func() {
+			server.mu.Lock()
+			server.calls[r.URL.String()]++
+			server.timeline = append(server.timeline, reqT)
+			server.mu.Unlock()
+		}()
 
 		if r.Host != host {
 			handleTestRequest(t, foreignLinksMapper, w, r)
@@ -120,6 +124,7 @@ func setupTestServer(
 
 func (ts *testServer) totalCallsCount() int {
 	defer ts.mu.Unlock()
+
 	ts.mu.Lock()
 
 	return len(ts.timeline)
@@ -127,6 +132,7 @@ func (ts *testServer) totalCallsCount() int {
 
 func (ts *testServer) minDelayBetweenRequests() (time.Duration, bool) {
 	defer ts.mu.Unlock()
+
 	ts.mu.Lock()
 
 	minDelay := time.Duration(math.MaxInt64)

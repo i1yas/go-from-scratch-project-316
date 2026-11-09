@@ -199,10 +199,12 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 	rootURL, err := url.Parse("http://" + host)
 	require.NoError(t, err)
 
-	analyzeDuration := time.Millisecond * 5
+	analyzeDuration := time.Millisecond * 100
 
-	var serverCallsWithoutDelay int
-	var serverCallsWithDelay int
+	var (
+		serverCallsWithoutDelay int
+		serverCallsWithDelay    int
+	)
 
 	t.Run("no delay", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(t.Context())
@@ -236,16 +238,17 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 
 		cancel()
 
-		serverCallsWithoutDelay = server.totalCallsCount()
-
 		<-analyzeEnded
+
+		serverCallsWithoutDelay = server.totalCallsCount()
 	})
 
 	t.Run("with delay", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
-		delay := time.Millisecond
+		delay := time.Millisecond * 30
+		slack := time.Millisecond * 5
 		maxCalls := int(analyzeDuration/delay) + 1 // NOTE: first call does not have delay
 
 		require.Less(t, maxCalls, linkCount)
@@ -287,13 +290,15 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 		require.Greater(t, totalCallsCount, 0)
 		require.LessOrEqual(t, totalCallsCount, maxCalls)
 
-		serverMinDelay, ok := server.minDelayBetweenRequests()
+		m, ok := server.minDelayBetweenRequests()
 		require.True(t, ok)
 
-		require.GreaterOrEqual(t, serverMinDelay, delay)
+		require.GreaterOrEqual(t, m, delay-slack)
 	})
 
-	require.Greater(t, serverCallsWithoutDelay, serverCallsWithDelay)
+	t.Run("more calls without delay", func(t *testing.T) {
+		require.Greater(t, serverCallsWithoutDelay, serverCallsWithDelay)
+	})
 
 	t.Run("stop delay after cancel", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(t.Context(), time.Second*20)
