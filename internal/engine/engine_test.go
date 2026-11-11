@@ -149,11 +149,55 @@ func TestEngineAnalyze_PagesFetchedOnce(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = e.Analyze(t.Context())
+	got, err := e.Analyze(t.Context())
 	require.NoError(t, err)
+
+	rootPageReport := PageReport{
+		URL:        testURL(t, "http://test.com"),
+		Depth:      0,
+		HTTPStatus: 200,
+		Status:     "ok",
+		SEO: PageSEO{
+			HasTitle:       true,
+			HasDescription: true,
+			HasH1:          true,
+			Title:          "Test <title>",
+			Description:    `test <meta name="description">`,
+		},
+		BrokenLinks: map[string]*BrokenLink{
+			"http://test.com/broken": {
+				URL:        "http://test.com/broken",
+				StatusCode: 500,
+			},
+			"https://example.com/home": {
+				URL:        "https://example.com/home",
+				StatusCode: 404,
+			},
+			"https://example.com/page?param1=x&param2=y": {
+				URL:        "https://example.com/page?param1=x&param2=y",
+				StatusCode: 404,
+			},
+		},
+		Error: nil,
+	}
+
+	nestedPageReport := rootPageReport
+	nestedPageReport.URL = testURL(t, "http://test.com/working")
+	nestedPageReport.Depth = 1
+
+	want := Report{
+		RootURL: "http://test.com",
+		Depth:   5,
+		Pages: []PageReport{
+			rootPageReport,
+			nestedPageReport,
+		},
+	}
 
 	_, err = e.Analyze(t.Context())
 	require.NoError(t, err)
+
+	requireReportMatches(t, want, got)
 
 	require.Equal(t, 1, server.calls["/"])
 	require.Equal(t, 1, server.calls["/working"])
