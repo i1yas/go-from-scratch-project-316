@@ -43,7 +43,7 @@ func requirePagesMatch(t *testing.T, want, got []PageReport) {
 
 		assert.Equal(t, wantPage.URL, gotPage.URL, "url")
 		assert.Equal(t, wantPage.Depth, gotPage.Depth, "depth")
-		assert.Contains(t, gotPage.Error, wantPage.Error, "error")
+		assert.ErrorIs(t, gotPage.Error, wantPage.Error)
 		assert.Equal(t, wantPage.HTTPStatus, gotPage.HTTPStatus, "http status")
 		assert.Equal(t, wantPage.Status, gotPage.Status, "status")
 		assert.Equal(t, wantPage.SEO, gotPage.SEO, "seo")
@@ -67,7 +67,7 @@ func requireAssetsMatch(t *testing.T, want, got map[string]*Asset) {
 		assert.Equal(t, wantAsset.Type, gotAsset.Type, "asset type")
 		assert.Equal(t, wantAsset.StatusCode, gotAsset.StatusCode, "status")
 		assert.Equal(t, wantAsset.SizeBytes, gotAsset.SizeBytes, "size bytes")
-		assert.ErrorIs(t, gotAsset.Err, wantAsset.Err, "error")
+		assert.ErrorIs(t, gotAsset.Error, wantAsset.Error, "error")
 		require.Equal(t, wantAsset.URL.String(), gotAsset.URL.String(), "url")
 	}
 }

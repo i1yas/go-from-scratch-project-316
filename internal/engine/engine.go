@@ -125,15 +125,15 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 		return err
 	case err != nil:
 		if parent == nil {
-			page.Error = err.Error()
+			page.Error = err
 			page.isIncluded = true
 
 			return nil
 		}
 
 		bl := BrokenLink{
-			URL: page.URL.String(),
-			Err: err,
+			URL:   page.URL.String(),
+			Error: err,
 		}
 		e.brokenLinks[pageURL.String()] = &bl
 		parent.BrokenLinks = append(parent.BrokenLinks, bl)
@@ -167,14 +167,14 @@ func (e *Engine) analyzeAsset(ctx context.Context, link htmlparser.Link, page *P
 	case errors.Is(err, context.Canceled):
 		return err
 	case err != nil:
-		asset.Err = err
+		asset.Error = err
 		page.Assets[link.URL.String()] = asset
 
 		return nil
 	default:
 		bodySize, err := responseBodySize(resp)
 		if err != nil {
-			asset.Err = fmt.Errorf("failed to calculate response body size: %w", err)
+			asset.Error = fmt.Errorf("failed to calculate response body size: %w", err)
 			page.Assets[link.URL.String()] = asset
 
 			return nil

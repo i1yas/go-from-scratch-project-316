@@ -41,7 +41,7 @@ type PageSEO struct {
 type BrokenLink struct {
 	URL        string `json:"url"`
 	StatusCode int    `json:"status_code,omitempty"`
-	Err        string `json:"error,omitempty"`
+	Error      string `json:"error,omitempty"`
 }
 
 // Asset contains formatted info about asset
@@ -50,7 +50,7 @@ type Asset struct {
 	Type       string `json:"type"`
 	StatusCode int    `json:"status_code"`
 	SizeBytes  int64  `json:"size_bytes"`
-	Err        string `json:"error"`
+	Error      string `json:"error"`
 }
 
 // Format format Report from engine
@@ -96,17 +96,22 @@ func convertPageReport(page engine.PageReport) PageReport {
 		Description:    page.SEO.Description,
 	}
 
-	return PageReport{
+	report := PageReport{
 		URL:          page.URL.String(),
 		Depth:        page.Depth,
 		HTTPStatus:   page.HTTPStatus,
 		Status:       page.Status,
-		Error:        page.Error,
 		SEO:          seo,
 		Assets:       assets,
 		BrokenLinks:  brokenLinks,
 		DiscoveredAt: formatTime(page.DiscoveredAt),
 	}
+
+	if page.Error != nil {
+		report.Error = page.Error.Error()
+	}
+
+	return report
 }
 
 func convertAsset(asset engine.Asset) Asset {
@@ -117,24 +122,24 @@ func convertAsset(asset engine.Asset) Asset {
 		SizeBytes:  asset.SizeBytes,
 	}
 
-	if asset.Err != nil {
-		result.Err = asset.Err.Error()
+	if asset.Error != nil {
+		result.Error = asset.Error.Error()
 	}
 
 	return result
 }
 
 func convertBrokenLink(bl engine.BrokenLink) BrokenLink {
-	err := ""
-	if bl.Err != nil {
-		err = bl.Err.Error()
-	}
-
-	return BrokenLink{
+	result := BrokenLink{
 		URL:        bl.URL,
 		StatusCode: bl.StatusCode,
-		Err:        err,
 	}
+
+	if bl.Error != nil {
+		result.Error = bl.Error.Error()
+	}
+
+	return result
 }
 
 func formatTime(t time.Time) string {

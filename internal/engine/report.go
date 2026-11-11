@@ -31,7 +31,7 @@ type PageReport struct {
 	Depth        int
 	HTTPStatus   int
 	Status       string
-	Error        string
+	Error        error
 	SEO          PageSEO
 	Assets       map[string]*Asset
 	BrokenLinks  []BrokenLink
@@ -43,7 +43,7 @@ type PageReport struct {
 type BrokenLink struct {
 	URL        string
 	StatusCode int
-	Err        error
+	Error      error
 }
 
 // AssetType is asset type: image, style, script or other
@@ -66,7 +66,7 @@ type Asset struct {
 	Type       AssetType
 	StatusCode int
 	SizeBytes  int64
-	Err        error
+	Error      error
 }
 
 func linkTypeToAssetType(linkType htmlparser.LinkType) AssetType {

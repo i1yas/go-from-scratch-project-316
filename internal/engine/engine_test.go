@@ -59,7 +59,7 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 						StatusCode: 404,
 					},
 				},
-				Error: "",
+				Error: nil,
 			},
 			{
 				URL:        nestedURL,
@@ -71,7 +71,7 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 					HasDescription: false,
 					HasH1:          false,
 				},
-				Error: "",
+				Error: nil,
 			},
 		},
 	}
@@ -353,7 +353,7 @@ func TestEngineAnalyze_RetriesOnRootURL(t *testing.T) {
 		retries      int
 		wantCalls    int
 		wantStatus   int
-		wantError    string
+		wantError    error
 		onServerFail func(w http.ResponseWriter, r *http.Request)
 	}{
 		{
@@ -391,7 +391,7 @@ func TestEngineAnalyze_RetriesOnRootURL(t *testing.T) {
 			serverFails:  4,
 			retries:      3,
 			wantCalls:    4,
-			wantError:    io.EOF.Error(),
+			wantError:    io.EOF,
 			onServerFail: hijackAndCloseHandler(t),
 		},
 	}
@@ -428,7 +428,7 @@ func TestEngineAnalyze_RetriesOnRootURL(t *testing.T) {
 
 			gotPage := got.Pages[0]
 			require.Equal(t, gotPage.HTTPStatus, tc.wantStatus, "status")
-			require.Contains(t, gotPage.Error, tc.wantError, "error")
+			require.ErrorIs(t, gotPage.Error, tc.wantError)
 			require.Equal(t, tc.wantCalls, server.totalCallsCount())
 		})
 	}
@@ -546,7 +546,7 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 			if tc.wantBrokenLinks > 0 {
 				gotBrokenLink := gotPage.BrokenLinks[0]
 				require.Equal(t, tc.wantStatus, gotBrokenLink.StatusCode, "status")
-				require.ErrorIs(t, gotBrokenLink.Err, tc.wantError)
+				require.ErrorIs(t, gotBrokenLink.Error, tc.wantError)
 			}
 		})
 	}
@@ -589,9 +589,9 @@ func TestEngineAnalyze_Assets(t *testing.T) {
 						SizeBytes:  0,
 					},
 					"http://test.com/script.js": {
-						URL:  testURL(t, "http://test.com/script.js"),
-						Type: AssetTypeScript,
-						Err:  io.EOF,
+						URL:   testURL(t, "http://test.com/script.js"),
+						Type:  AssetTypeScript,
+						Error: io.EOF,
 					},
 					"http://test.com/image-1.png": {
 						URL:        testURL(t, "http://test.com/image-1.png"),
@@ -657,7 +657,7 @@ func TestEngineAnalyze_PageWithoutLinks(t *testing.T) {
 					HasTitle: true,
 					Title:    "Document",
 				},
-				Error: "",
+				Error: nil,
 			},
 		},
 	}
@@ -691,7 +691,7 @@ func TestEngineAnalyze_NetworkError(t *testing.T) {
 			{
 				URL:   rootURL,
 				Depth: 0,
-				Error: io.EOF.Error(),
+				Error: io.EOF,
 			},
 		},
 	}
@@ -787,7 +787,7 @@ func TestEngineAnalyze_CancelContextAfterLinksCollected(t *testing.T) {
 						StatusCode: 404,
 					},
 				},
-				Error: "",
+				Error: nil,
 			},
 		},
 	}
