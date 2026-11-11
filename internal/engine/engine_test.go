@@ -594,6 +594,8 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 				require.Equal(t, tc.wantStatus, gotBrokenLink.StatusCode, "status")
 				require.ErrorIs(t, gotBrokenLink.Error, tc.wantError)
 			}
+
+			require.Equal(t, tc.wantCalls, server.calls["/link"])
 		})
 	}
 }
