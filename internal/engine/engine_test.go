@@ -620,6 +620,15 @@ func TestEngineAnalyze_Assets(t *testing.T) {
 	require.NoError(t, err)
 
 	requireReportMatches(t, want, got)
+
+	_, err = e.Analyze(t.Context())
+	require.NoError(t, err)
+
+	require.Equal(t, 1, server.calls["/style.css"])
+	require.Equal(t, 1, server.calls["/script.js"])
+	require.Equal(t, 1, server.calls["/image-1.png"])
+	require.Equal(t, 1, server.calls["/image-2.png"])
+	require.Equal(t, 1, server.calls["/image-3.png"])
 }
 
 func TestEngineAnalyze_PageWithoutLinks(t *testing.T) {
