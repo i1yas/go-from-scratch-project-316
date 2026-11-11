@@ -145,6 +145,42 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 	}
 }
 
+func (e *Engine) analyzeAsset(ctx context.Context, link htmlparser.Link, page *PageReport) error {
+	// TODO: check if asset is analyzed
+	resp, err := e.fetch(ctx, link.URL)
+
+	asset := Asset{
+		Type: linkTypeToAssetType(link.Type),
+		URL:  link.URL,
+	}
+
+	switch {
+	case errors.Is(err, context.Canceled):
+		return err
+	case err != nil:
+		asset.Err = err
+		page.Assets = append(page.Assets, asset)
+
+		return nil
+	default:
+		bodySize, err := responseBodySize(resp)
+		if err != nil {
+			asset.Err = fmt.Errorf("failed to calculate response body size: %w", err)
+			page.Assets = append(page.Assets, asset)
+
+			return nil
+		}
+
+		asset.SizeBytes = bodySize
+
+		asset.StatusCode = resp.StatusCode
+
+		page.Assets = append(page.Assets, asset)
+
+		return nil
+	}
+}
+
 func (e *Engine) fetch(ctx context.Context, pageURL *url.URL) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", pageURL.String(), nil)
 	if err != nil {
@@ -278,6 +314,11 @@ func (e *Engine) processDocument(ctx context.Context, rawDocument io.Reader, pag
 		}
 
 		if link.Type != htmlparser.LinkTypeAnchor {
+			err := e.analyzeAsset(ctx, link, page)
+			if err != nil {
+				return err
+			}
+
 			continue
 		}
 

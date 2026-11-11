@@ -552,6 +552,76 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 	}
 }
 
+func TestEngineAnalyze_Assets(t *testing.T) {
+	pageContent := loadFixture(t, "page-with-assets.html")
+
+	server := setupTestServer(t, "test.com", map[string]testServerResponse{
+		"/":            {status: 200, body: pageContent},
+		"/style.css":   {status: 200},
+		"/script.js":   {fn: hijackAndCloseHandler(t)},
+		"/image-1.png": {status: 200, body: make([]byte, 121), omitContentLength: true},
+		"/image-2.png": {status: 200, contentLength: 121},
+	}, nil)
+
+	rootURL := testURL(t, "http://test.com")
+
+	e, err := New(Options{
+		URL:        rootURL.String(),
+		Depth:      1,
+		HTTPClient: server.client,
+	})
+	require.NoError(t, err)
+
+	want := Report{
+		RootURL: rootURL.String(),
+		Depth:   1,
+		Pages: []PageReport{
+			{
+				URL:        rootURL,
+				Depth:      0,
+				HTTPStatus: 200,
+				Status:     "ok",
+				Assets: []Asset{
+					{
+						URL:        testURL(t, "http://test.com/style.css"),
+						Type:       AssetTypeStyle,
+						StatusCode: 200,
+						SizeBytes:  0,
+					},
+					{
+						URL:  testURL(t, "http://test.com/script.js"),
+						Type: AssetTypeScript,
+						Err:  io.EOF,
+					},
+					{
+						URL:        testURL(t, "http://test.com/image-1.png"),
+						Type:       AssetTypeImage,
+						StatusCode: 200,
+						SizeBytes:  121,
+					},
+					{
+						URL:        testURL(t, "http://test.com/image-2.png"),
+						Type:       AssetTypeImage,
+						StatusCode: 200,
+						SizeBytes:  121,
+					},
+					{
+						URL:        testURL(t, "http://test.com/image-3.png"),
+						Type:       AssetTypeImage,
+						StatusCode: 404,
+						SizeBytes:  0,
+					},
+				},
+			},
+		},
+	}
+
+	got, err := e.Analyze(t.Context())
+	require.NoError(t, err)
+
+	requireReportMatches(t, want, got)
+}
+
 func TestEngineAnalyze_PageWithoutLinks(t *testing.T) {
 	pageContent := loadFixture(t, "page-without-links.html")
 

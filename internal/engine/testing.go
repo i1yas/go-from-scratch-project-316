@@ -5,9 +5,11 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -28,6 +30,8 @@ func requireReportMatches(t *testing.T, want, got Report) {
 }
 
 func requirePagesMatch(t *testing.T, want, got []PageReport) {
+	t.Helper()
+
 	require.Equal(t, len(want), len(got), "amount of pages")
 
 	slices.SortFunc(got, comparePageReports)
@@ -44,13 +48,38 @@ func requirePagesMatch(t *testing.T, want, got []PageReport) {
 		assert.Equal(t, wantPage.Status, gotPage.Status, "status")
 		assert.Equal(t, wantPage.SEO, gotPage.SEO, "seo")
 
+		requireAssetsMatch(t, wantPage.Assets, gotPage.Assets)
 		require.ElementsMatch(t, wantPage.BrokenLinks, gotPage.BrokenLinks, "broken links")
 
 		require.NotZero(t, gotPage.DiscoveredAt, "discovered time is set")
 	}
 }
 
+func requireAssetsMatch(t *testing.T, want, got []Asset) {
+	t.Helper()
+
+	require.Equal(t, len(want), len(got), "amount of assets")
+
+	slices.SortFunc(got, compareAssets)
+	slices.SortFunc(want, compareAssets)
+
+	for i := range want {
+		wantAsset := want[i]
+		gotAsset := got[i]
+
+		assert.Equal(t, wantAsset.Type, gotAsset.Type, "asset type")
+		assert.Equal(t, wantAsset.StatusCode, gotAsset.StatusCode, "status")
+		assert.Equal(t, wantAsset.SizeBytes, gotAsset.SizeBytes, "size bytes")
+		assert.ErrorIs(t, gotAsset.Err, wantAsset.Err, "error")
+		require.Equal(t, wantAsset.URL.String(), gotAsset.URL.String(), "url")
+	}
+}
+
 func comparePageReports(a, b PageReport) int {
+	return strings.Compare(a.URL.String(), b.URL.String())
+}
+
+func compareAssets(a, b Asset) int {
 	return strings.Compare(a.URL.String(), b.URL.String())
 }
 
@@ -66,9 +95,11 @@ func loadFixture(t *testing.T, name string) []byte {
 }
 
 type testServerResponse struct {
-	status int
-	body   []byte
-	fn     func(w http.ResponseWriter, r *http.Request)
+	status            int
+	body              []byte
+	contentLength     int64
+	omitContentLength bool
+	fn                func(w http.ResponseWriter, r *http.Request)
 }
 
 type testServer struct {
@@ -176,9 +207,20 @@ func handleTestRequest(
 		return
 	}
 
+	if respConf.contentLength > 0 {
+		w.Header().Set("Content-Length", strconv.FormatInt(respConf.contentLength, 10))
+	}
+
 	w.WriteHeader(respConf.status)
 	_, err := w.Write(respConf.body)
 	require.NoError(t, err)
+
+	if respConf.omitContentLength {
+		flusher, ok := w.(http.Flusher)
+		require.True(t, ok)
+
+		flusher.Flush()
+	}
 }
 
 func generateDocumentWithLinks(t *testing.T, linkCount int) []byte {
@@ -214,4 +256,13 @@ func hijackAndCloseHandler(t *testing.T) http.HandlerFunc {
 
 		require.NoError(t, conn.Close())
 	}
+}
+
+func testURL(t *testing.T, rawURL string) *url.URL {
+	t.Helper()
+
+	u, err := url.Parse(rawURL)
+	require.NoError(t, err)
+
+	return u
 }

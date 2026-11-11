@@ -3,6 +3,8 @@ package engine
 import (
 	"net/url"
 	"time"
+
+	"code/internal/htmlparser"
 )
 
 // Report contains crawling report
@@ -31,6 +33,7 @@ type PageReport struct {
 	Status       string
 	Error        string
 	SEO          PageSEO
+	Assets       []Asset
 	BrokenLinks  []BrokenLink
 	DiscoveredAt time.Time
 	isIncluded   bool
@@ -41,4 +44,40 @@ type BrokenLink struct {
 	URL        string
 	StatusCode int
 	Err        error
+}
+
+// AssetType is asset type: image, style, script or other
+type AssetType string
+
+const (
+	// AssetTypeImage is type for image asset
+	AssetTypeImage AssetType = "image"
+	// AssetTypeStyle is type CSS style
+	AssetTypeStyle AssetType = "style"
+	// AssetTypeScript is type for js script asset
+	AssetTypeScript AssetType = "script"
+	// AssetTypeOther is unknown asset type
+	AssetTypeOther AssetType = "other"
+)
+
+// Asset contains information about asset from page
+type Asset struct {
+	URL        *url.URL
+	Type       AssetType
+	StatusCode int
+	SizeBytes  int64
+	Err        error
+}
+
+func linkTypeToAssetType(linkType htmlparser.LinkType) AssetType {
+	switch linkType {
+	case htmlparser.LinkTypeImage:
+		return AssetTypeImage
+	case htmlparser.LinkTypeStyle:
+		return AssetTypeStyle
+	case htmlparser.LinkTypeScript:
+		return AssetTypeScript
+	default:
+		return AssetTypeOther
+	}
 }
