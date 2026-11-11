@@ -49,12 +49,12 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 					Title:          "Test <title>",
 					Description:    `test <meta name="description">`,
 				},
-				BrokenLinks: []BrokenLink{
-					{
+				BrokenLinks: map[string]*BrokenLink{
+					"http://test.com/broken": {
 						URL:        "http://test.com/broken",
 						StatusCode: 500,
 					},
-					{
+					"https://example.com/page?param1=x&param2=y": {
 						URL:        "https://example.com/page?param1=x&param2=y",
 						StatusCode: 404,
 					},
@@ -544,7 +544,9 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 			require.Equal(t, tc.wantBrokenLinks, len(gotPage.BrokenLinks), "amount of broken links")
 
 			if tc.wantBrokenLinks > 0 {
-				gotBrokenLink := gotPage.BrokenLinks[0]
+				gotBrokenLink, ok := gotPage.BrokenLinks["http://test.com/link"]
+				require.True(t, ok)
+
 				require.Equal(t, tc.wantStatus, gotBrokenLink.StatusCode, "status")
 				require.ErrorIs(t, gotBrokenLink.Error, tc.wantError)
 			}
@@ -773,16 +775,16 @@ func TestEngineAnalyze_CancelContextAfterLinksCollected(t *testing.T) {
 					Title:          "Test <title>",
 					Description:    `test <meta name="description">`,
 				},
-				BrokenLinks: []BrokenLink{
-					{
+				BrokenLinks: map[string]*BrokenLink{
+					"http://test.com/broken": {
 						URL:        "http://test.com/broken",
 						StatusCode: 404,
 					},
-					{
+					"https://example.com/page?param1=x&param2=y": {
 						URL:        "https://example.com/page?param1=x&param2=y",
 						StatusCode: 404,
 					},
-					{
+					"https://example.com/home": {
 						URL:        "https://example.com/home",
 						StatusCode: 404,
 					},

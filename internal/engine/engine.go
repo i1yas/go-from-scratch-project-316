@@ -115,6 +115,7 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 		Depth:        depth,
 		DiscoveredAt: time.Now(),
 		Assets:       map[string]*Asset{},
+		BrokenLinks:  map[string]*BrokenLink{},
 	}
 	e.pages[pageURL.String()] = &page
 
@@ -136,7 +137,7 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 			Error: err,
 		}
 		e.brokenLinks[pageURL.String()] = &bl
-		parent.BrokenLinks = append(parent.BrokenLinks, bl)
+		parent.BrokenLinks[pageURL.String()] = &bl
 
 		return nil
 	default:
@@ -265,7 +266,7 @@ func (e *Engine) processPageResponse(
 			StatusCode: resp.StatusCode,
 		}
 		e.brokenLinks[pageURL.String()] = &bl
-		parent.BrokenLinks = append(parent.BrokenLinks, bl)
+		parent.BrokenLinks[pageURL.String()] = &bl
 
 		return nil
 	}
@@ -318,7 +319,7 @@ func (e *Engine) processDocument(ctx context.Context, rawDocument io.Reader, pag
 	for _, link := range links {
 		bl, isBroken := e.brokenLinks[link.URL.String()]
 		if isBroken {
-			page.BrokenLinks = append(page.BrokenLinks, *bl)
+			page.BrokenLinks[link.URL.String()] = bl
 			continue
 		}
 

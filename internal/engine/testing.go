@@ -49,7 +49,7 @@ func requirePagesMatch(t *testing.T, want, got []PageReport) {
 		assert.Equal(t, wantPage.SEO, gotPage.SEO, "seo")
 
 		requireAssetsMatch(t, wantPage.Assets, gotPage.Assets)
-		require.ElementsMatch(t, wantPage.BrokenLinks, gotPage.BrokenLinks, "broken links")
+		requireBrokenLinksMatch(t, wantPage.BrokenLinks, gotPage.BrokenLinks)
 
 		require.NotZero(t, gotPage.DiscoveredAt, "discovered time is set")
 	}
@@ -69,6 +69,21 @@ func requireAssetsMatch(t *testing.T, want, got map[string]*Asset) {
 		assert.Equal(t, wantAsset.SizeBytes, gotAsset.SizeBytes, "size bytes")
 		assert.ErrorIs(t, gotAsset.Error, wantAsset.Error, "error")
 		require.Equal(t, wantAsset.URL.String(), gotAsset.URL.String(), "url")
+	}
+}
+
+func requireBrokenLinksMatch(t *testing.T, want, got map[string]*BrokenLink) {
+	t.Helper()
+
+	require.Equal(t, len(want), len(got), "amount of broken links")
+
+	for key := range want {
+		wantLink := want[key]
+		gotLink := got[key]
+
+		assert.Equal(t, wantLink.StatusCode, gotLink.StatusCode)
+		assert.ErrorIs(t, gotLink.Error, wantLink.Error)
+		require.Equal(t, wantLink.URL, gotLink.URL)
 	}
 }
 

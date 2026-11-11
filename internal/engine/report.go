@@ -34,7 +34,7 @@ type PageReport struct {
 	Error        error
 	SEO          PageSEO
 	Assets       map[string]*Asset
-	BrokenLinks  []BrokenLink
+	BrokenLinks  map[string]*BrokenLink
 	DiscoveredAt time.Time
 	isIncluded   bool
 }
