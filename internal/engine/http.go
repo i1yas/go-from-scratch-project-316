@@ -9,7 +9,7 @@ import (
 )
 
 func isRetriableStatus(statusCode int) bool {
-	return statusCode == 492 || statusCode >= 500
+	return statusCode == 429 || statusCode >= 500
 }
 
 func isHTMLContentType(contentType string) bool {
