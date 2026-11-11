@@ -42,6 +42,7 @@ type Engine struct {
 	depth           int
 	retries         int
 	pages           map[string]*PageReport
+	assets          map[string]*Asset
 	brokenLinks     map[string]*BrokenLink
 	lastRequestTime *time.Time
 }
@@ -68,6 +69,7 @@ func New(opts Options) (*Engine, error) {
 		depth:       opts.Depth,
 		retries:     opts.Retries,
 		pages:       map[string]*PageReport{},
+		assets:      map[string]*Asset{},
 		brokenLinks: map[string]*BrokenLink{},
 	}, nil
 }
@@ -147,13 +149,19 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 }
 
 func (e *Engine) analyzeAsset(ctx context.Context, link htmlparser.Link, page *PageReport) error {
-	// TODO: check if asset is analyzed
+	foundAsset, ok := e.assets[link.URL.String()]
+	if ok {
+		page.Assets[link.URL.String()] = foundAsset
+		return nil
+	}
+
 	resp, err := e.fetch(ctx, link.URL)
 
 	asset := &Asset{
 		Type: linkTypeToAssetType(link.Type),
 		URL:  link.URL,
 	}
+	e.assets[link.URL.String()] = asset
 
 	switch {
 	case errors.Is(err, context.Canceled):
