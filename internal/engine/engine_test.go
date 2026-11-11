@@ -483,7 +483,7 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 		name            string
 		serverFails     int
 		retries         int
-		wantCalls       int
+		wantNestedCalls int
 		wantPages       int
 		wantBrokenLinks int
 		wantStatus      int
@@ -494,7 +494,7 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 			name:            "enough retries, no broken links",
 			serverFails:     2,
 			retries:         3,
-			wantCalls:       3,
+			wantNestedCalls: 3,
 			wantPages:       2,
 			wantBrokenLinks: 0,
 			onServerFail: func(w http.ResponseWriter, _ *http.Request) {
@@ -505,7 +505,7 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 			name:            "just enough retries, no broken links",
 			serverFails:     3,
 			retries:         3,
-			wantCalls:       4,
+			wantNestedCalls: 4,
 			wantPages:       2,
 			wantBrokenLinks: 0,
 			onServerFail: func(w http.ResponseWriter, _ *http.Request) {
@@ -516,7 +516,7 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 			name:            "not enough retires, record status 500",
 			serverFails:     4,
 			retries:         3,
-			wantCalls:       4,
+			wantNestedCalls: 4,
 			wantBrokenLinks: 1,
 			wantPages:       1,
 			wantStatus:      500,
@@ -528,7 +528,7 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 			name:            "not enough retires, record status 429",
 			serverFails:     4,
 			retries:         3,
-			wantCalls:       4,
+			wantNestedCalls: 4,
 			wantBrokenLinks: 1,
 			wantPages:       1,
 			wantStatus:      429,
@@ -540,7 +540,7 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 			name:            "not enough retires, record error",
 			serverFails:     4,
 			retries:         3,
-			wantCalls:       4,
+			wantNestedCalls: 4,
 			wantPages:       1,
 			wantBrokenLinks: 1,
 			wantError:       io.EOF,
@@ -595,7 +595,7 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 				require.ErrorIs(t, gotBrokenLink.Error, tc.wantError)
 			}
 
-			require.Equal(t, tc.wantCalls, server.calls["/link"])
+			require.Equal(t, tc.wantNestedCalls, server.calls["/link"])
 		})
 	}
 }
