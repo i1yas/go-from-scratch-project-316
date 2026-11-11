@@ -581,31 +581,31 @@ func TestEngineAnalyze_Assets(t *testing.T) {
 				Depth:      0,
 				HTTPStatus: 200,
 				Status:     "ok",
-				Assets: []Asset{
-					{
+				Assets: map[string]*Asset{
+					"http://test.com/style.css": {
 						URL:        testURL(t, "http://test.com/style.css"),
 						Type:       AssetTypeStyle,
 						StatusCode: 200,
 						SizeBytes:  0,
 					},
-					{
+					"http://test.com/script.js": {
 						URL:  testURL(t, "http://test.com/script.js"),
 						Type: AssetTypeScript,
 						Err:  io.EOF,
 					},
-					{
+					"http://test.com/image-1.png": {
 						URL:        testURL(t, "http://test.com/image-1.png"),
 						Type:       AssetTypeImage,
 						StatusCode: 200,
 						SizeBytes:  121,
 					},
-					{
+					"http://test.com/image-2.png": {
 						URL:        testURL(t, "http://test.com/image-2.png"),
 						Type:       AssetTypeImage,
 						StatusCode: 200,
 						SizeBytes:  121,
 					},
-					{
+					"http://test.com/image-3.png": {
 						URL:        testURL(t, "http://test.com/image-3.png"),
 						Type:       AssetTypeImage,
 						StatusCode: 404,

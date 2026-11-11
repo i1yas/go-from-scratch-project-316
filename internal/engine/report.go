@@ -33,7 +33,7 @@ type PageReport struct {
 	Status       string
 	Error        string
 	SEO          PageSEO
-	Assets       []Asset
+	Assets       map[string]*Asset
 	BrokenLinks  []BrokenLink
 	DiscoveredAt time.Time
 	isIncluded   bool

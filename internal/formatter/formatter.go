@@ -77,11 +77,11 @@ func Format(report engine.Report) ([]byte, error) {
 }
 
 func convertPageReport(page engine.PageReport) PageReport {
-	assets := make([]Asset, len(page.Assets))
+	assets := make([]Asset, 0, len(page.Assets))
 	brokenLinks := make([]BrokenLink, len(page.BrokenLinks))
 
-	for i, asset := range page.Assets {
-		assets[i] = convertAsset(asset)
+	for _, asset := range page.Assets {
+		assets = append(assets, convertAsset(*asset))
 	}
 
 	for i, bl := range page.BrokenLinks {

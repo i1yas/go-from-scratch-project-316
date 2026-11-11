@@ -55,17 +55,14 @@ func requirePagesMatch(t *testing.T, want, got []PageReport) {
 	}
 }
 
-func requireAssetsMatch(t *testing.T, want, got []Asset) {
+func requireAssetsMatch(t *testing.T, want, got map[string]*Asset) {
 	t.Helper()
 
 	require.Equal(t, len(want), len(got), "amount of assets")
 
-	slices.SortFunc(got, compareAssets)
-	slices.SortFunc(want, compareAssets)
-
-	for i := range want {
-		wantAsset := want[i]
-		gotAsset := got[i]
+	for key := range want {
+		wantAsset := want[key]
+		gotAsset := got[key]
 
 		assert.Equal(t, wantAsset.Type, gotAsset.Type, "asset type")
 		assert.Equal(t, wantAsset.StatusCode, gotAsset.StatusCode, "status")
@@ -76,10 +73,6 @@ func requireAssetsMatch(t *testing.T, want, got []Asset) {
 }
 
 func comparePageReports(a, b PageReport) int {
-	return strings.Compare(a.URL.String(), b.URL.String())
-}
-
-func compareAssets(a, b Asset) int {
 	return strings.Compare(a.URL.String(), b.URL.String())
 }
 

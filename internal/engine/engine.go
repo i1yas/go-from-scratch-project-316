@@ -112,6 +112,7 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 		URL:          pageURL,
 		Depth:        depth,
 		DiscoveredAt: time.Now(),
+		Assets:       map[string]*Asset{},
 	}
 	e.pages[pageURL.String()] = &page
 
@@ -149,7 +150,7 @@ func (e *Engine) analyzeAsset(ctx context.Context, link htmlparser.Link, page *P
 	// TODO: check if asset is analyzed
 	resp, err := e.fetch(ctx, link.URL)
 
-	asset := Asset{
+	asset := &Asset{
 		Type: linkTypeToAssetType(link.Type),
 		URL:  link.URL,
 	}
@@ -159,14 +160,14 @@ func (e *Engine) analyzeAsset(ctx context.Context, link htmlparser.Link, page *P
 		return err
 	case err != nil:
 		asset.Err = err
-		page.Assets = append(page.Assets, asset)
+		page.Assets[link.URL.String()] = asset
 
 		return nil
 	default:
 		bodySize, err := responseBodySize(resp)
 		if err != nil {
 			asset.Err = fmt.Errorf("failed to calculate response body size: %w", err)
-			page.Assets = append(page.Assets, asset)
+			page.Assets[link.URL.String()] = asset
 
 			return nil
 		}
@@ -175,7 +176,7 @@ func (e *Engine) analyzeAsset(ctx context.Context, link htmlparser.Link, page *P
 
 		asset.StatusCode = resp.StatusCode
 
-		page.Assets = append(page.Assets, asset)
+		page.Assets[link.URL.String()] = asset
 
 		return nil
 	}
