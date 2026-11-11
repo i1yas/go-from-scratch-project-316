@@ -44,7 +44,7 @@ type BrokenLink struct {
 	Err        string `json:"error,omitempty"`
 }
 
-// Asset contains information about asset
+// Asset contains formatted info about asset
 type Asset struct {
 	URL        string `json:"url"`
 	Type       string `json:"type"`
@@ -58,7 +58,7 @@ func Format(report engine.Report) ([]byte, error) {
 	pages := make([]PageReport, len(report.Pages))
 
 	for i, page := range report.Pages {
-		pages[i] = toPageReport(page)
+		pages[i] = convertPageReport(page)
 	}
 
 	reportDTO := Report{
@@ -76,16 +76,16 @@ func Format(report engine.Report) ([]byte, error) {
 	return reportJSON, nil
 }
 
-func toPageReport(page engine.PageReport) PageReport {
+func convertPageReport(page engine.PageReport) PageReport {
 	assets := make([]Asset, len(page.Assets))
 	brokenLinks := make([]BrokenLink, len(page.BrokenLinks))
 
 	for i, asset := range page.Assets {
-		assets[i] = toAsset(asset)
+		assets[i] = convertAsset(asset)
 	}
 
 	for i, bl := range page.BrokenLinks {
-		brokenLinks[i] = toBrokenLink(bl)
+		brokenLinks[i] = convertBrokenLink(bl)
 	}
 
 	seo := PageSEO{
@@ -109,7 +109,7 @@ func toPageReport(page engine.PageReport) PageReport {
 	}
 }
 
-func toAsset(asset engine.Asset) Asset {
+func convertAsset(asset engine.Asset) Asset {
 	result := Asset{
 		URL:        asset.URL.String(),
 		Type:       string(asset.Type),
@@ -124,7 +124,7 @@ func toAsset(asset engine.Asset) Asset {
 	return result
 }
 
-func toBrokenLink(bl engine.BrokenLink) BrokenLink {
+func convertBrokenLink(bl engine.BrokenLink) BrokenLink {
 	err := ""
 	if bl.Err != nil {
 		err = bl.Err.Error()
