@@ -62,7 +62,7 @@ func Format(report engine.Report) ([]byte, error) {
 	}
 
 	reportDTO := Report{
-		RootURL:     report.RootURL,
+		RootURL:     report.RootURL.String(),
 		Depth:       report.Depth,
 		GeneratedAt: formatTime(report.GeneratedAt),
 		Pages:       pages,
@@ -131,7 +131,7 @@ func convertAsset(asset engine.Asset) Asset {
 
 func convertBrokenLink(bl engine.BrokenLink) BrokenLink {
 	result := BrokenLink{
-		URL:        bl.URL,
+		URL:        bl.URL.String(),
 		StatusCode: bl.StatusCode,
 	}
 

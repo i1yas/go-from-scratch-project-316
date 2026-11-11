@@ -34,7 +34,7 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 	)
 
 	want := Report{
-		RootURL: rootURL.String(),
+		RootURL: rootURL,
 		Depth:   1,
 		Pages: []PageReport{
 			{
@@ -51,11 +51,11 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 				},
 				BrokenLinks: map[string]*BrokenLink{
 					"http://test.com/broken": {
-						URL:        "http://test.com/broken",
+						URL:        testURL(t, "http://test.com/broken"),
 						StatusCode: 500,
 					},
 					"https://example.com/page?param1=x&param2=y": {
-						URL:        "https://example.com/page?param1=x&param2=y",
+						URL:        testURL(t, "https://example.com/page?param1=x&param2=y"),
 						StatusCode: 404,
 					},
 				},
@@ -108,7 +108,7 @@ func TestEningeAnalyze_RootURLFailed(t *testing.T) {
 	require.NoError(t, err)
 
 	want := Report{
-		RootURL: rootURL.String(),
+		RootURL: rootURL,
 		Depth:   0,
 		Pages: []PageReport{
 			{
@@ -166,15 +166,15 @@ func TestEngineAnalyze_PagesFetchedOnce(t *testing.T) {
 		},
 		BrokenLinks: map[string]*BrokenLink{
 			"http://test.com/broken": {
-				URL:        "http://test.com/broken",
+				URL:        testURL(t, "http://test.com/broken"),
 				StatusCode: 500,
 			},
 			"https://example.com/home": {
-				URL:        "https://example.com/home",
+				URL:        testURL(t, "https://example.com/home"),
 				StatusCode: 404,
 			},
 			"https://example.com/page?param1=x&param2=y": {
-				URL:        "https://example.com/page?param1=x&param2=y",
+				URL:        testURL(t, "https://example.com/page?param1=x&param2=y"),
 				StatusCode: 404,
 			},
 		},
@@ -186,7 +186,7 @@ func TestEngineAnalyze_PagesFetchedOnce(t *testing.T) {
 	nestedPageReport.Depth = 1
 
 	want := Report{
-		RootURL: "http://test.com",
+		RootURL: testURL(t, "http://test.com"),
 		Depth:   5,
 		Pages: []PageReport{
 			rootPageReport,
@@ -619,7 +619,7 @@ func TestEngineAnalyze_Assets(t *testing.T) {
 	require.NoError(t, err)
 
 	want := Report{
-		RootURL: rootURL.String(),
+		RootURL: rootURL,
 		Depth:   1,
 		Pages: []PageReport{
 			{
@@ -691,7 +691,7 @@ func TestEngineAnalyze_PageWithoutLinks(t *testing.T) {
 	)
 
 	want := Report{
-		RootURL: rootURL.String(),
+		RootURL: rootURL,
 		Depth:   1,
 		Pages: []PageReport{
 			{
@@ -731,7 +731,7 @@ func TestEngineAnalyze_NetworkError(t *testing.T) {
 	require.NoError(t, err)
 
 	want := Report{
-		RootURL: rootURL.String(),
+		RootURL: rootURL,
 		Depth:   1,
 		Pages: []PageReport{
 			{
@@ -804,7 +804,7 @@ func TestEngineAnalyze_CancelContextAfterLinksCollected(t *testing.T) {
 	require.NoError(t, err)
 
 	want := Report{
-		RootURL: rootURL.String(),
+		RootURL: rootURL,
 		Depth:   1,
 		Pages: []PageReport{
 			{
@@ -821,15 +821,15 @@ func TestEngineAnalyze_CancelContextAfterLinksCollected(t *testing.T) {
 				},
 				BrokenLinks: map[string]*BrokenLink{
 					"http://test.com/broken": {
-						URL:        "http://test.com/broken",
+						URL:        testURL(t, "http://test.com/broken"),
 						StatusCode: 404,
 					},
 					"https://example.com/page?param1=x&param2=y": {
-						URL:        "https://example.com/page?param1=x&param2=y",
+						URL:        testURL(t, "https://example.com/page?param1=x&param2=y"),
 						StatusCode: 404,
 					},
 					"https://example.com/home": {
-						URL:        "https://example.com/home",
+						URL:        testURL(t, "https://example.com/home"),
 						StatusCode: 404,
 					},
 				},

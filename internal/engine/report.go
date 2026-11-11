@@ -9,7 +9,7 @@ import (
 
 // Report contains crawling report
 type Report struct {
-	RootURL     string
+	RootURL     *url.URL
 	Depth       int
 	GeneratedAt time.Time
 	Pages       []PageReport
@@ -41,7 +41,7 @@ type PageReport struct {
 
 // BrokenLink contains information about broken link
 type BrokenLink struct {
-	URL        string
+	URL        *url.URL
 	StatusCode int
 	Error      error
 }

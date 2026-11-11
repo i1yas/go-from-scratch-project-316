@@ -90,7 +90,7 @@ func (e *Engine) Analyze(ctx context.Context) (Report, error) {
 	}
 
 	return Report{
-		RootURL:     e.rootURL.String(),
+		RootURL:     e.rootURL,
 		Depth:       e.depth,
 		GeneratedAt: time.Now(),
 		Pages:       pages,
@@ -133,7 +133,7 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 		}
 
 		bl := BrokenLink{
-			URL:   page.URL.String(),
+			URL:   page.URL,
 			Error: err,
 		}
 		e.brokenLinks[pageURL.String()] = &bl
@@ -262,7 +262,7 @@ func (e *Engine) processPageResponse(
 		}
 
 		bl := BrokenLink{
-			URL:        pageURL.String(),
+			URL:        pageURL,
 			StatusCode: resp.StatusCode,
 		}
 		e.brokenLinks[pageURL.String()] = &bl
