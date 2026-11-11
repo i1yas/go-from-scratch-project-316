@@ -169,6 +169,14 @@ func (ts *testServer) totalCallsCount() int {
 	return len(ts.timeline)
 }
 
+func (ts *testServer) callsCountTo(uri string) int {
+	defer ts.mu.Unlock()
+
+	ts.mu.Lock()
+
+	return ts.calls[uri]
+}
+
 func (ts *testServer) minDelayBetweenRequests() (time.Duration, bool) {
 	defer ts.mu.Unlock()
 

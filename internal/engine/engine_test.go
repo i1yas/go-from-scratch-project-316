@@ -199,9 +199,9 @@ func TestEngineAnalyze_PagesFetchedOnce(t *testing.T) {
 
 	requireReportMatches(t, want, got)
 
-	require.Equal(t, 1, server.calls["/"])
-	require.Equal(t, 1, server.calls["/working"])
-	require.Equal(t, 1, server.calls["/broken"])
+	require.Equal(t, 1, server.callsCountTo("/"))
+	require.Equal(t, 1, server.callsCountTo("/working"))
+	require.Equal(t, 1, server.callsCountTo("/broken"))
 }
 
 func TestEngineAnalyze_RestrictDepth(t *testing.T) {
@@ -595,7 +595,7 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 				require.ErrorIs(t, gotBrokenLink.Error, tc.wantError)
 			}
 
-			require.Equal(t, tc.wantNestedCalls, server.calls["/link"])
+			require.Equal(t, tc.wantNestedCalls, server.callsCountTo("/link"))
 		})
 	}
 }
@@ -672,11 +672,11 @@ func TestEngineAnalyze_Assets(t *testing.T) {
 	_, err = e.Analyze(t.Context())
 	require.NoError(t, err)
 
-	require.Equal(t, 1, server.calls["/style.css"])
-	require.Equal(t, 1, server.calls["/script.js"])
-	require.Equal(t, 1, server.calls["/image-1.png"])
-	require.Equal(t, 1, server.calls["/image-2.png"])
-	require.Equal(t, 1, server.calls["/image-3.png"])
+	require.Equal(t, 1, server.callsCountTo("/style.css"))
+	require.Equal(t, 1, server.callsCountTo("/script.js"))
+	require.Equal(t, 1, server.callsCountTo("/image-1.png"))
+	require.Equal(t, 1, server.callsCountTo("/image-2.png"))
+	require.Equal(t, 1, server.callsCountTo("/image-3.png"))
 }
 
 func TestEngineAnalyze_PageWithoutLinks(t *testing.T) {
