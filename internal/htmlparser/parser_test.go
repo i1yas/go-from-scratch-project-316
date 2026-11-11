@@ -5,9 +5,12 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,20 +24,58 @@ func TestExtractLinks_PageWithLinks(t *testing.T) {
 	gotLinks, err := ExtractLinks(doc, docURL(t))
 	require.NoError(t, err)
 
-	wantLinks := []string{
-		"http://test.com/link",
-		"http://test.com/inner-page/relative-with-dot",
-		"http://test.com/inner-page/relative-no-dot",
-		"http://test.com/relative-5-dir-up",
-		"http://test.com/item-1",
-		"http://test.com/item-2",
-		"http://test.com/image",
-		"http://test.com/banner",
-		"https://example.com/page?param=value",
-		"http://example.com/page?param=value",
+	wantLinks := []Link{
+		{
+			Type: LinkTypeStyle,
+			URL:  testURL(t, "http://test.com/style.css"),
+		},
+		{
+			Type: LinkTypeAnchor,
+			URL:  testURL(t, "http://test.com/link"),
+		},
+		{
+			Type: LinkTypeAnchor,
+			URL:  testURL(t, "http://test.com/inner-page/relative-with-dot"),
+		},
+		{
+			Type: LinkTypeAnchor,
+			URL:  testURL(t, "http://test.com/inner-page/relative-no-dot"),
+		},
+		{
+			Type: LinkTypeAnchor,
+			URL:  testURL(t, "http://test.com/relative-5-dir-up"),
+		},
+		{
+			Type: LinkTypeAnchor,
+			URL:  testURL(t, "http://test.com/item-1"),
+		},
+		{
+			Type: LinkTypeAnchor,
+			URL:  testURL(t, "http://test.com/item-2"),
+		},
+		{
+			Type: LinkTypeImage,
+			URL:  testURL(t, "http://test.com/image"),
+		},
+		{
+			Type: LinkTypeAnchor,
+			URL:  testURL(t, "http://test.com/banner"),
+		},
+		{
+			Type: LinkTypeAnchor,
+			URL:  testURL(t, "https://example.com/page?param=value"),
+		},
+		{
+			Type: LinkTypeAnchor,
+			URL:  testURL(t, "http://example.com/page?param=value"),
+		},
+		{
+			Type: LinkTypeScript,
+			URL:  testURL(t, "http://test.com/script.js"),
+		},
 	}
 
-	require.ElementsMatch(t, wantLinks, urlsAsStrings(t, gotLinks))
+	requireLinksMatch(t, wantLinks, gotLinks)
 }
 
 func TestExtractLinks_PageWithoutLinks(t *testing.T) {
@@ -83,14 +124,31 @@ func docURL(t *testing.T) *url.URL {
 	return u
 }
 
-func urlsAsStrings(t *testing.T, urls []*url.URL) []string {
+func testURL(t *testing.T, rawURL string) *url.URL {
 	t.Helper()
 
-	result := make([]string, len(urls))
+	u, err := url.Parse(rawURL)
+	require.NoError(t, err)
 
-	for i, u := range urls {
-		result[i] = u.String()
+	return u
+}
+
+func requireLinksMatch(t *testing.T, wantLinks, gotLinks []Link) {
+	slices.SortFunc(wantLinks, compareLinks)
+	slices.SortFunc(gotLinks, compareLinks)
+
+	for i := range wantLinks {
+		wantLink := wantLinks[i]
+		gotLink := gotLinks[i]
+
+		assert.Equal(t, wantLink.Type, gotLink.Type, wantLink.URL.String())
+		require.Equal(t, wantLink.URL.String(), gotLink.URL.String())
 	}
+}
 
-	return result
+func compareLinks(l1, l2 Link) int {
+	a := l1.URL.String() + string(l1.Type)
+	b := l2.URL.String() + string(l2.Type)
+
+	return strings.Compare(a, b)
 }

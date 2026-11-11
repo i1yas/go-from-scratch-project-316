@@ -271,13 +271,17 @@ func (e *Engine) processDocument(ctx context.Context, rawDocument io.Reader, pag
 	}
 
 	for _, link := range links {
-		bl, isBroken := e.brokenLinks[link.String()]
+		bl, isBroken := e.brokenLinks[link.URL.String()]
 		if isBroken {
 			page.BrokenLinks = append(page.BrokenLinks, *bl)
 			continue
 		}
 
-		err := e.analyzePage(withParentPage(ctx, page), link)
+		if link.Type != htmlparser.LinkTypeAnchor {
+			continue
+		}
+
+		err := e.analyzePage(withParentPage(ctx, page), link.URL)
 		if err != nil {
 			return err
 		}

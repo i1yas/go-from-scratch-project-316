@@ -8,9 +8,31 @@ import (
 	"golang.org/x/net/html"
 )
 
+// LinkType represents link type: anchor, image, style, script or other
+type LinkType string
+
+const (
+	// LinkTypeAnchor represents link from <a> tag
+	LinkTypeAnchor LinkType = "anchor"
+	// LinkTypeImage represents link from <img> tag
+	LinkTypeImage LinkType = "image"
+	// LinkTypeStyle represents link from <link rel="stylesheet" ...> tag
+	LinkTypeStyle LinkType = "style"
+	// LinkTypeScript represents link from <script> tag
+	LinkTypeScript LinkType = "script"
+	// LinkTypeOther groups all other links
+	LinkTypeOther LinkType = "other"
+)
+
+// Link represents link in html document
+type Link struct {
+	Type LinkType
+	URL  *url.URL
+}
+
 // ExtractLinks extracts links from html document
-func ExtractLinks(doc *goquery.Document, docURL *url.URL) ([]*url.URL, error) {
-	var links []*url.URL
+func ExtractLinks(doc *goquery.Document, docURL *url.URL) ([]Link, error) {
+	var links []Link
 
 	doc.Each(func(i int, s *goquery.Selection) {
 		node := s.Nodes[i]
@@ -20,8 +42,8 @@ func ExtractLinks(doc *goquery.Document, docURL *url.URL) ([]*url.URL, error) {
 	return links, nil
 }
 
-func extractLinksFromNode(node *html.Node, docURL *url.URL) []*url.URL {
-	var links []*url.URL
+func extractLinksFromNode(node *html.Node, docURL *url.URL) []Link {
+	var links []Link
 
 	link, ok := extractLinkFromNode(node, docURL)
 	if ok {
@@ -35,21 +57,24 @@ func extractLinksFromNode(node *html.Node, docURL *url.URL) []*url.URL {
 	return links
 }
 
-func extractLinkFromNode(node *html.Node, docURL *url.URL) (*url.URL, bool) {
-	rawLink, ok := extractRawLinkFromNode(node)
+func extractLinkFromNode(node *html.Node, docURL *url.URL) (Link, bool) {
+	rawLink, typ, ok := extractRawLinkFromNode(node)
 	if !ok {
-		return nil, false
+		return Link{}, false
 	}
 
-	link, ok := parseLink(rawLink, docURL)
+	u, ok := parseURL(rawLink, docURL)
 	if !ok {
-		return nil, false
+		return Link{}, false
 	}
 
-	return link, true
+	return Link{
+		Type: typ,
+		URL:  u,
+	}, true
 }
 
-func parseLink(rawLink string, docURL *url.URL) (*url.URL, bool) {
+func parseURL(rawLink string, docURL *url.URL) (*url.URL, bool) {
 	parsedURL, err := url.Parse(rawLink)
 	if err != nil {
 		return nil, false
@@ -90,20 +115,40 @@ func joinPath(link, docURL *url.URL) (string, bool) {
 	return path, true
 }
 
-func extractRawLinkFromNode(node *html.Node) (string, bool) {
+func extractRawLinkFromNode(node *html.Node) (string, LinkType, bool) {
 	switch node.Data {
 	case "a":
-		return attr(node, "href")
+		href, ok := attr(node, "href")
+		if !ok {
+			return "", LinkTypeOther, false
+		}
+
+		return href, LinkTypeAnchor, true
 	case "link":
-		return linkFromLinkTag(node)
+		rel, ok := linkFromLinkTag(node)
+		if !ok {
+			return "", LinkTypeOther, false
+		}
+
+		return rel, LinkTypeStyle, true
 	case "script":
-		return attr(node, "src")
+		src, ok := attr(node, "src")
+		if !ok {
+			return "", LinkTypeOther, false
+		}
+
+		return src, LinkTypeScript, true
 	case "img":
-		return attr(node, "src")
+		src, ok := attr(node, "src")
+		if !ok {
+			return "", LinkTypeOther, false
+		}
+
+		return src, LinkTypeImage, true
 		// TODO: video, audio, source, etc
 	}
 
-	return "", false
+	return "", LinkTypeOther, false
 }
 
 func linkFromLinkTag(node *html.Node) (string, bool) {
