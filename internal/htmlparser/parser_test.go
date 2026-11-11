@@ -21,8 +21,7 @@ func TestExtractLinks_PageWithLinks(t *testing.T) {
 	doc, err := goquery.NewDocumentFromReader(pageContentReader)
 	require.NoError(t, err)
 
-	gotLinks, err := ExtractLinks(doc, docURL(t))
-	require.NoError(t, err)
+	gotLinks := ExtractLinks(doc, docURL(t))
 
 	wantLinks := []Link{
 		{
@@ -85,8 +84,7 @@ func TestExtractLinks_PageWithoutLinks(t *testing.T) {
 	doc, err := goquery.NewDocumentFromReader(pageContentReader)
 	require.NoError(t, err)
 
-	gotLinks, err := ExtractLinks(doc, docURL(t))
-	require.NoError(t, err)
+	gotLinks := ExtractLinks(doc, docURL(t))
 
 	require.Equal(t, 0, len(gotLinks))
 }
@@ -98,8 +96,7 @@ func TestExtractLinks_InvalidHTML(t *testing.T) {
 	doc, err := goquery.NewDocumentFromReader(pageContentReader)
 	require.NoError(t, err)
 
-	gotLinks, err := ExtractLinks(doc, docURL(t))
-	require.NoError(t, err)
+	gotLinks := ExtractLinks(doc, docURL(t))
 
 	require.Equal(t, 0, len(gotLinks))
 }

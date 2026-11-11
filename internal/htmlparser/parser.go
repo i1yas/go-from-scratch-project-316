@@ -31,7 +31,7 @@ type Link struct {
 }
 
 // ExtractLinks extracts links from html document
-func ExtractLinks(doc *goquery.Document, docURL *url.URL) ([]Link, error) {
+func ExtractLinks(doc *goquery.Document, docURL *url.URL) []Link {
 	var links []Link
 
 	doc.Each(func(i int, s *goquery.Selection) {
@@ -39,7 +39,7 @@ func ExtractLinks(doc *goquery.Document, docURL *url.URL) ([]Link, error) {
 		links = append(links, extractLinksFromNode(node, docURL)...)
 	})
 
-	return links, nil
+	return links
 }
 
 func extractLinksFromNode(node *html.Node, docURL *url.URL) []Link {

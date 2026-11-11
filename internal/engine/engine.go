@@ -311,10 +311,7 @@ func (e *Engine) processDocument(ctx context.Context, rawDocument io.Reader, pag
 		return nil
 	}
 
-	links, err := htmlparser.ExtractLinks(doc, e.rootURL)
-	if err != nil {
-		return nil
-	}
+	links := htmlparser.ExtractLinks(doc, e.rootURL)
 
 	for _, link := range links {
 		bl, isBroken := e.brokenLinks[link.URL.String()]
