@@ -1,0 +1,24 @@
+{
+  "root_url": "https://example.com",
+  "depth": 1,
+  "generated_at": "2024-06-01T12:34:56Z",
+  "pages": [
+    {
+      "url": "https://example.com",
+      "depth": 0,
+      "http_status": 200,
+      "status": "ok",
+      "error": "",
+      "seo": {
+        "has_title": true,
+        "title": "No links",
+        "has_description": false,
+        "description": "",
+        "has_h1": false
+      },
+      "broken_links": [],
+      "assets": [],
+      "discovered_at": "2024-06-01T12:34:56Z"
+    }
+  ]
+}
