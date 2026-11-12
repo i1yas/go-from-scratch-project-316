@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
@@ -80,31 +78,16 @@ func TestAnalyze_PageWithoutLinks(t *testing.T) {
 }
 
 func TestAnalyze_NetworkError(t *testing.T) {
-	server := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		hj, ok := w.(http.Hijacker)
-		if !ok {
-			t.Fatal("hijacking not supported")
-		}
-
-		conn, _, err := hj.Hijack()
-		if err != nil {
-			t.Error(err)
-			return
-		}
-
-		require.NoError(t, conn.Close())
-	}))
-
-	client := server.Client()
-
-	url := "http://test.com"
+	server := tu.SetupTestServer(t, testHost, map[string]tu.TestServerRoute{
+		"/": {Fn: tu.HijackAndCloseHandler(t)},
+	}, nil)
 
 	want := formatter.Report{
-		RootURL: url,
+		RootURL: testRootURL,
 		Depth:   1,
 		Pages: []formatter.PageReport{
 			{
-				URL:   url,
+				URL:   testRootURL,
 				Depth: 0,
 				Error: io.EOF.Error(),
 			},
@@ -112,10 +95,10 @@ func TestAnalyze_NetworkError(t *testing.T) {
 	}
 
 	gotRaw, err := Analyze(t.Context(), Options{
-		URL:        url,
+		URL:        testRootURL,
 		Depth:      1,
 		UserAgent:  "test",
-		HTTPClient: client,
+		HTTPClient: server.Client,
 	})
 	require.NoError(t, err)
 
@@ -126,13 +109,11 @@ func TestAnalyze_ErrorOnCanceledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	server := httptest.NewTestServer(
-		t, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}),
-	)
+	server := tu.SetupTestServer(t, testHost, nil, nil)
 
 	_, err := Analyze(ctx, Options{
-		URL:        "http://test.com",
-		HTTPClient: server.Client(),
+		URL:        testRootURL,
+		HTTPClient: server.Client,
 	})
 	require.ErrorIs(t, err, context.Canceled)
 }
