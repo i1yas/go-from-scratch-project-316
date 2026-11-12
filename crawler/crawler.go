@@ -27,5 +27,5 @@ func Analyze(ctx context.Context, opts Options) ([]byte, error) {
 		return nil, err
 	}
 
-	return formatter.Format(report)
+	return formatter.Format(report, opts.IndentJSON)
 }

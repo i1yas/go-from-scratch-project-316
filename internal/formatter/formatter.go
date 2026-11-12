@@ -54,7 +54,7 @@ type Asset struct {
 }
 
 // Format format Report from engine
-func Format(report engine.Report) ([]byte, error) {
+func Format(report engine.Report, isIndented bool) ([]byte, error) {
 	pages := make([]PageReport, len(report.Pages))
 
 	for i, page := range report.Pages {
@@ -66,6 +66,15 @@ func Format(report engine.Report) ([]byte, error) {
 		Depth:       report.Depth,
 		GeneratedAt: formatTime(report.GeneratedAt),
 		Pages:       pages,
+	}
+
+	if !isIndented {
+		reportJSON, err := json.Marshal(reportDTO)
+		if err != nil {
+			return nil, err
+		}
+
+		return reportJSON, nil
 	}
 
 	reportJSON, err := json.MarshalIndent(reportDTO, "", "  ")
