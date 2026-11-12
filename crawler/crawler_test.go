@@ -1,6 +1,7 @@
 package crawler
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -72,6 +73,45 @@ func TestAnalyze_PageWithoutLinks(t *testing.T) {
 	require.NoError(t, err)
 
 	require.JSONEq(t, string(wantReport), string(gotRaw))
+}
+
+func TestAnalyze_Indent(t *testing.T) {
+	pageContent := loadFixture(t, "page-without-links.html")
+
+	server := tu.SetupTestServer(t, testHost,
+		map[string]tu.TestServerRoute{
+			"/": {Status: 200, Body: pageContent},
+		},
+		nil,
+	)
+
+	t.Run("with indent", func(t *testing.T) {
+		gotRaw, err := Analyze(t.Context(), Options{
+			URL:        testRootURL,
+			IndentJSON: true,
+			HTTPClient: server.Client,
+		})
+		require.NoError(t, err)
+
+		var wantRaw bytes.Buffer
+		require.NoError(t, json.Indent(&wantRaw, gotRaw, "", "  "))
+
+		require.Equal(t, wantRaw.String(), string(gotRaw))
+	})
+
+	t.Run("no indent", func(t *testing.T) {
+		gotRaw, err := Analyze(t.Context(), Options{
+			URL:        testRootURL,
+			IndentJSON: false,
+			HTTPClient: server.Client,
+		})
+		require.NoError(t, err)
+
+		var wantRaw bytes.Buffer
+		require.NoError(t, json.Compact(&wantRaw, gotRaw))
+
+		require.Equal(t, wantRaw.String(), string(gotRaw))
+	})
 }
 
 func TestAnalyze_NetworkError(t *testing.T) {
