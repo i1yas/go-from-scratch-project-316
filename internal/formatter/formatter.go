@@ -40,8 +40,8 @@ type PageSEO struct {
 // BrokenLink contains formatted info about broken link
 type BrokenLink struct {
 	URL        string `json:"url"`
-	StatusCode int    `json:"status_code,omitempty"`
-	Error      string `json:"error,omitempty"`
+	StatusCode int    `json:"status_code"`
+	Error      string `json:"error"`
 }
 
 // Asset contains formatted info about asset
