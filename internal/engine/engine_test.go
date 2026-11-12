@@ -25,12 +25,12 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 	require.NoError(t, err)
 
 	server := tu.SetupTestServer(t, host,
-		map[string]tu.TestServerResponse{
+		map[string]tu.TestServerRoute{
 			"/":        {Status: 200, Body: pageContent},
 			"/working": {Status: 200},
 			"/broken":  {Status: 500},
 		},
-		map[string]tu.TestServerResponse{
+		map[string]tu.TestServerRoute{
 			"/home": {Status: 200, Body: pageContent},
 		},
 	)
@@ -94,7 +94,7 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 
 func TestEningeAnalyze_RootURLFailed(t *testing.T) {
 	server := tu.SetupTestServer(t, "test.com",
-		map[string]tu.TestServerResponse{
+		map[string]tu.TestServerRoute{
 			"/": {Status: 500},
 		},
 		nil,
@@ -136,7 +136,7 @@ func TestEngineAnalyze_PagesFetchedOnce(t *testing.T) {
 	require.NoError(t, err)
 
 	server := tu.SetupTestServer(t, host,
-		map[string]tu.TestServerResponse{
+		map[string]tu.TestServerRoute{
 			"/":        {Status: 200, Body: pageContent},
 			"/working": {Status: 200, Body: pageContent},
 			"/broken":  {Status: 500},
@@ -214,7 +214,7 @@ func TestEngineAnalyze_RestrictDepth(t *testing.T) {
 	require.NoError(t, err)
 
 	server := tu.SetupTestServer(t, host,
-		map[string]tu.TestServerResponse{
+		map[string]tu.TestServerRoute{
 			"/":        {Status: 200, Body: pageContent},
 			"/working": {Status: 200},
 			"/broken":  {Status: 500},
@@ -259,7 +259,7 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 		analyzeEnded := make(chan struct{})
 
 		server := tu.SetupTestServer(t, host,
-			map[string]tu.TestServerResponse{
+			map[string]tu.TestServerRoute{
 				"/": {Status: 200, Body: pageContent},
 			},
 			nil,
@@ -302,7 +302,7 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 		analyzeEnded := make(chan struct{})
 
 		server := tu.SetupTestServer(t, host,
-			map[string]tu.TestServerResponse{
+			map[string]tu.TestServerRoute{
 				"/": {Status: 200, Body: pageContent},
 			},
 			nil,
@@ -355,7 +355,7 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 		analyzeEnded := make(chan struct{})
 
 		server := tu.SetupTestServer(t, host,
-			map[string]tu.TestServerResponse{
+			map[string]tu.TestServerRoute{
 				"/": {Status: 200, Body: pageContent},
 			},
 			nil,
@@ -446,7 +446,7 @@ func TestEngineAnalyze_RetriesOnRootURL(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			serverFailsLeft := tc.serverFails
 
-			server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerResponse{
+			server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerRoute{
 				"/": {Fn: func(w http.ResponseWriter, r *http.Request) {
 					if serverFailsLeft > 0 {
 						serverFailsLeft--
@@ -556,7 +556,7 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			serverFailsLeft := tc.serverFails
 
-			server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerResponse{
+			server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerRoute{
 				"/": {Status: 200, Body: pageContent},
 				"/link": {Fn: func(w http.ResponseWriter, r *http.Request) {
 					if serverFailsLeft > 0 {
@@ -605,7 +605,7 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 func TestEngineAnalyze_Assets(t *testing.T) {
 	pageContent := loadFixture(t, "page-with-assets.html")
 
-	server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerResponse{
+	server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerRoute{
 		"/":            {Status: 200, Body: pageContent},
 		"/style.css":   {Status: 200},
 		"/script.js":   {Fn: tu.HijackAndCloseHandler(t)},
@@ -688,7 +688,7 @@ func TestEngineAnalyze_PageWithoutLinks(t *testing.T) {
 	require.NoError(t, err)
 
 	server := tu.SetupTestServer(t, "test.com",
-		map[string]tu.TestServerResponse{
+		map[string]tu.TestServerRoute{
 			"/": {Status: 200, Body: pageContent},
 		},
 		nil,
@@ -727,7 +727,7 @@ func TestEngineAnalyze_PageWithoutLinks(t *testing.T) {
 }
 
 func TestEngineAnalyze_NetworkError(t *testing.T) {
-	server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerResponse{
+	server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerRoute{
 		"/": {Fn: tu.HijackAndCloseHandler(t)},
 	}, nil)
 
@@ -788,7 +788,7 @@ func TestEngineAnalyze_CancelContextAfterLinksCollected(t *testing.T) {
 	blockReq := make(chan struct{})
 	defer close(blockReq)
 
-	server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerResponse{
+	server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerRoute{
 		"/": {Status: 200, Body: pageContent},
 		"/working": {Fn: func(w http.ResponseWriter, _ *http.Request) {
 			close(reqStarted)

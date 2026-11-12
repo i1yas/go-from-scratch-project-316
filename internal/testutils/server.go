@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestServerResponse contains route config for test server
-type TestServerResponse struct {
+// TestServerRoute contains route config for test server
+type TestServerRoute struct {
 	Status            int
 	Body              []byte
 	ContentLength     int64
@@ -34,8 +34,8 @@ type TestServer struct {
 func SetupTestServer(
 	t *testing.T,
 	host string,
-	internalLinksMapper map[string]TestServerResponse,
-	foreignLinksMapper map[string]TestServerResponse,
+	internalRoutesMapper map[string]TestServerRoute,
+	externalRoutesMapper map[string]TestServerRoute,
 ) *TestServer {
 	t.Helper()
 
@@ -56,11 +56,11 @@ func SetupTestServer(
 		}()
 
 		if r.Host != host {
-			handleTestRequest(t, foreignLinksMapper, w, r)
+			handleTestRequest(t, externalRoutesMapper, w, r)
 			return
 		}
 
-		handleTestRequest(t, internalLinksMapper, w, r)
+		handleTestRequest(t, internalRoutesMapper, w, r)
 	}))
 
 	client := server.srv.Client()
@@ -122,7 +122,7 @@ func (ts *TestServer) MinDelayBetweenRequests() (time.Duration, bool) {
 
 func handleTestRequest(
 	t *testing.T,
-	mapper map[string]TestServerResponse,
+	mapper map[string]TestServerRoute,
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
