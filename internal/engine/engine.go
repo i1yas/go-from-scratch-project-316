@@ -30,7 +30,9 @@ type Options struct {
 	UserAgent   string
 	Concurrency int
 	IndentJSON  bool
-	HTTPClient  *http.Client
+
+	HTTPClient *http.Client
+	Clock      func() time.Time
 }
 
 // Engine is crawler engine
@@ -38,13 +40,15 @@ type Engine struct {
 	rootURL         *url.URL
 	userAgent       string
 	delay           time.Duration
-	client          *http.Client
 	depth           int
 	retries         int
 	pages           map[string]*PageReport
 	assets          map[string]*Asset
 	brokenLinks     map[string]*BrokenLink
 	lastRequestTime *time.Time
+
+	client *http.Client
+	clock  func() time.Time
 }
 
 // New constructs new crawler engine
@@ -58,6 +62,10 @@ func New(opts Options) (*Engine, error) {
 		return nil, ErrHTTPClientNotProvided
 	}
 
+	if opts.Clock == nil {
+		opts.Clock = time.Now
+	}
+
 	client := opts.HTTPClient
 	client.Timeout = opts.Timeout
 
@@ -65,12 +73,13 @@ func New(opts Options) (*Engine, error) {
 		rootURL:     rootURL,
 		userAgent:   opts.UserAgent,
 		delay:       opts.Delay,
-		client:      client,
 		depth:       opts.Depth,
 		retries:     opts.Retries,
 		pages:       map[string]*PageReport{},
 		assets:      map[string]*Asset{},
 		brokenLinks: map[string]*BrokenLink{},
+		client:      client,
+		clock:       opts.Clock,
 	}, nil
 }
 
@@ -92,7 +101,7 @@ func (e *Engine) Analyze(ctx context.Context) (Report, error) {
 	return Report{
 		RootURL:     e.rootURL,
 		Depth:       e.depth,
-		GeneratedAt: time.Now(),
+		GeneratedAt: e.clock(),
 		Pages:       pages,
 	}, err
 }
@@ -113,7 +122,7 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 	page := PageReport{
 		URL:          pageURL,
 		Depth:        depth,
-		DiscoveredAt: time.Now(),
+		DiscoveredAt: e.clock(),
 		Assets:       map[string]*Asset{},
 		BrokenLinks:  map[string]*BrokenLink{},
 	}
@@ -206,7 +215,7 @@ func (e *Engine) fetch(ctx context.Context, pageURL *url.URL) (*http.Response, e
 	for {
 		e.waitRequestDelay(ctx)
 
-		t := time.Now()
+		t := e.clock()
 		e.lastRequestTime = &t
 
 		resp, err := e.client.Do(req)
@@ -231,7 +240,7 @@ func (e *Engine) waitRequestDelay(ctx context.Context) {
 		return
 	}
 
-	delay := e.delay - time.Since(*e.lastRequestTime)
+	delay := e.delay - e.clock().Sub(*e.lastRequestTime)
 	if delay < 0 {
 		return
 	}

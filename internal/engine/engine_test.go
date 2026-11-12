@@ -92,6 +92,32 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 	requireReportMatches(t, want, got)
 }
 
+func TestEngine_CustomClock(t *testing.T) {
+	pageContent := loadFixture(t, "page-without-links.html")
+
+	server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerRoute{
+		"/": {Status: 200, Body: pageContent},
+	}, nil)
+
+	wantTime := time.Now().Add(time.Minute * 111)
+
+	e, err := New(Options{
+		URL:        "http://test.com",
+		HTTPClient: server.Client,
+		Clock: func() time.Time {
+			return wantTime
+		},
+	})
+	require.NoError(t, err)
+
+	got, err := e.Analyze(t.Context())
+	require.NoError(t, err)
+
+	require.Equal(t, wantTime, got.GeneratedAt)
+	require.Equal(t, 1, len(got.Pages))
+	require.Equal(t, wantTime, got.Pages[0].DiscoveredAt)
+}
+
 func TestEningeAnalyze_RootURLFailed(t *testing.T) {
 	server := tu.SetupTestServer(t, "test.com",
 		map[string]tu.TestServerRoute{
