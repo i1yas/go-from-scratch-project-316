@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"time"
 
@@ -12,7 +13,15 @@ import (
 	"code/crawler"
 )
 
-var ErrInvalidDelay = errors.New("invalid delay")
+var (
+	ErrNoRootURL      = errors.New("no root url provided")
+	ErrInvalidDepth   = errors.New("invalid depth value")
+	ErrInvalidRetries = errors.New("invalid retries amount")
+	ErrInvalidDelay   = errors.New("invalid delay duration")
+	ErrInvalidTimeout = errors.New("invalid timeout duration")
+	ErrInvalidRPS     = errors.New("invalid RPS value")
+	ErrInvalidWorkers = errors.New("invalid amount of workers")
+)
 
 // BuildCommand build crawler command
 func BuildCommand() *cli.Command {
@@ -101,10 +110,20 @@ func processFlags(flags []cli.Flag) []cli.Flag {
 }
 
 func parseOptions(cmd *cli.Command) (crawler.Options, error) {
-	url := cmd.StringArg("url")
+	rootURL := cmd.StringArg("url")
+	if rootURL == "" {
+		return crawler.Options{}, ErrNoRootURL
+	}
 
 	depth := cmd.Int("depth")
+	if err := validateInt(depth, 0, math.MaxInt, ErrInvalidDepth); err != nil {
+		return crawler.Options{}, err
+	}
+
 	retries := cmd.Int("retries")
+	if err := validateInt(retries, 0, math.MaxInt, ErrInvalidRetries); err != nil {
+		return crawler.Options{}, err
+	}
 
 	delay, err := time.ParseDuration(cmd.String("delay"))
 	if err != nil {
@@ -113,17 +132,27 @@ func parseOptions(cmd *cli.Command) (crawler.Options, error) {
 
 	timeout, err := time.ParseDuration(cmd.String("timeout"))
 	if err != nil {
-		return crawler.Options{}, fmt.Errorf("%w: %w", ErrInvalidDelay, err)
+		return crawler.Options{}, fmt.Errorf("%w: %w", ErrInvalidTimeout, err)
 	}
 
 	workers := cmd.Int("workers")
+	if err := validateInt(workers, 1, math.MaxInt, ErrInvalidWorkers); err != nil {
+		return crawler.Options{}, err
+	}
 
 	userAgent := cmd.String("user-agent")
 
-	// TODO: rps
+	rps := cmd.Int("rps")
+	if err := validateInt(rps, 0, math.MaxInt, ErrInvalidRPS); err != nil {
+		return crawler.Options{}, err
+	}
+
+	if rps > 0 {
+		delay = time.Second / time.Duration(rps)
+	}
 
 	opts := crawler.Options{
-		URL:         url,
+		URL:         rootURL,
 		Depth:       depth,
 		Retries:     retries,
 		Delay:       delay,
@@ -133,4 +162,16 @@ func parseOptions(cmd *cli.Command) (crawler.Options, error) {
 	}
 
 	return opts, nil
+}
+
+func validateInt(value, minValue, maxValue int, baseErr error) error {
+	if value < minValue {
+		return fmt.Errorf("%w: too small, got %d, min is %d", baseErr, value, minValue)
+	}
+
+	if value > maxValue {
+		return fmt.Errorf("%w: too big, got %d, max is %d", baseErr, value, maxValue)
+	}
+
+	return nil
 }
