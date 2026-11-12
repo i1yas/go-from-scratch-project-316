@@ -80,6 +80,7 @@ func BuildCommand() *cli.Command {
 			}
 
 			opts.HTTPClient = &http.Client{}
+			opts.IndentJSON = true
 
 			output, err := crawler.Analyze(ctx, opts)
 			if err != nil {
