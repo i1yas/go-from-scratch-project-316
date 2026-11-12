@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"code/internal/formatter"
+	tu "code/internal/testutils"
 )
 
 func TestAnalyze_WellFormedPage(t *testing.T) {
@@ -24,16 +25,14 @@ func TestAnalyze_WellFormedPage(t *testing.T) {
 	host := "test.com"
 	url := "http://" + host
 
-	server := setupTestServer(t, host,
-		map[string]testServerResponse{
-			"/":        {status: 200, body: pageContent},
-			"/working": {status: 200},
-			"/broken":  {status: 500},
+	server := tu.SetupTestServer(t, host,
+		map[string]tu.TestServerRoute{
+			"/":        {Status: 200, Body: pageContent},
+			"/working": {Status: 200},
+			"/broken":  {Status: 500},
 		},
 		nil,
 	)
-
-	client := server.Client()
 
 	want := formatter.Report{
 		RootURL: url,
@@ -82,7 +81,7 @@ func TestAnalyze_WellFormedPage(t *testing.T) {
 		URL:        url,
 		Depth:      1,
 		UserAgent:  "test",
-		HTTPClient: client,
+		HTTPClient: server.Client,
 	})
 	require.NoError(t, err)
 
@@ -94,22 +93,20 @@ func TestAnalyze_RestrictDepth(t *testing.T) {
 	host := "test.com"
 	url := "http://" + host
 
-	server := setupTestServer(t, host,
-		map[string]testServerResponse{
-			"/":        {status: 200, body: pageContent},
-			"/working": {status: 200},
-			"/broken":  {status: 500},
+	server := tu.SetupTestServer(t, host,
+		map[string]tu.TestServerRoute{
+			"/":        {Status: 200, Body: pageContent},
+			"/working": {Status: 200},
+			"/broken":  {Status: 500},
 		},
 		nil,
 	)
-
-	client := server.Client()
 
 	gotRaw, err := Analyze(t.Context(), Options{
 		URL:        url,
 		Depth:      0,
 		UserAgent:  "test",
-		HTTPClient: client,
+		HTTPClient: server.Client,
 	})
 	require.NoError(t, err)
 
@@ -125,14 +122,12 @@ func TestAnalyze_PageWithoutLinks(t *testing.T) {
 	pageContent := loadFixture(t, "page-without-links.html")
 	url := "http://test.com"
 
-	server := setupTestServer(t, "test.com",
-		map[string]testServerResponse{
-			"/": {status: 200, body: pageContent},
+	server := tu.SetupTestServer(t, "test.com",
+		map[string]tu.TestServerRoute{
+			"/": {Status: 200, Body: pageContent},
 		},
 		nil,
 	)
-
-	client := server.Client()
 
 	want := formatter.Report{
 		RootURL: url,
@@ -156,7 +151,7 @@ func TestAnalyze_PageWithoutLinks(t *testing.T) {
 		URL:        url,
 		Depth:      1,
 		UserAgent:  "test",
-		HTTPClient: client,
+		HTTPClient: server.Client,
 	})
 	require.NoError(t, err)
 
@@ -296,44 +291,4 @@ func loadFixture(t *testing.T, name string) []byte {
 	require.NoError(t, err)
 
 	return data
-}
-
-type testServerResponse struct {
-	status int
-	body   []byte
-}
-
-func setupTestServer(
-	t *testing.T,
-	host string,
-	internalLinksMapper map[string]testServerResponse,
-	foreignLinksMapper map[string]testServerResponse,
-) *httptest.Server {
-	server := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Host != host {
-			respConf, ok := foreignLinksMapper[r.RequestURI]
-			if !ok {
-				w.WriteHeader(http.StatusNotFound)
-				return
-			}
-
-			w.WriteHeader(respConf.status)
-			_, err := w.Write(respConf.body)
-			require.NoError(t, err)
-
-			return
-		}
-
-		respConf, ok := internalLinksMapper[r.RequestURI]
-		if !ok {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-
-		w.WriteHeader(respConf.status)
-		_, err := w.Write(respConf.body)
-		require.NoError(t, err)
-	}))
-
-	return server
 }
