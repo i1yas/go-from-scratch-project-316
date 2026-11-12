@@ -2,18 +2,12 @@ package engine
 
 import (
 	"fmt"
-	"math"
-	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
-	"sync"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -102,143 +96,6 @@ func loadFixture(t *testing.T, name string) []byte {
 	return data
 }
 
-type testServerResponse struct {
-	status            int
-	body              []byte
-	contentLength     int64
-	omitContentLength bool
-	fn                func(w http.ResponseWriter, r *http.Request)
-}
-
-type testServer struct {
-	srv      *httptest.Server
-	client   *http.Client
-	calls    map[string]int
-	timeline []time.Time
-	mu       sync.Mutex
-}
-
-func setupTestServer(
-	t *testing.T,
-	host string,
-	internalLinksMapper map[string]testServerResponse,
-	foreignLinksMapper map[string]testServerResponse,
-) *testServer {
-	t.Helper()
-
-	server := &testServer{
-		calls:    map[string]int{},
-		timeline: []time.Time{},
-		mu:       sync.Mutex{},
-	}
-
-	server.srv = httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		reqT := time.Now()
-
-		defer func() {
-			server.mu.Lock()
-			server.calls[r.URL.String()]++
-			server.timeline = append(server.timeline, reqT)
-			server.mu.Unlock()
-		}()
-
-		if r.Host != host {
-			handleTestRequest(t, foreignLinksMapper, w, r)
-			return
-		}
-
-		handleTestRequest(t, internalLinksMapper, w, r)
-	}))
-
-	client := server.srv.Client()
-	client.Transport.(*http.Transport).DisableKeepAlives = true // nolint:forcetypeassert
-	server.client = client
-
-	t.Cleanup(func() {
-		server.srv.Close()
-	})
-
-	return server
-}
-
-func (ts *testServer) totalCallsCount() int {
-	defer ts.mu.Unlock()
-
-	ts.mu.Lock()
-
-	return len(ts.timeline)
-}
-
-func (ts *testServer) callsCountTo(uri string) int {
-	defer ts.mu.Unlock()
-
-	ts.mu.Lock()
-
-	return ts.calls[uri]
-}
-
-func (ts *testServer) minDelayBetweenRequests() (time.Duration, bool) {
-	defer ts.mu.Unlock()
-
-	ts.mu.Lock()
-
-	minDelay := time.Duration(math.MaxInt64)
-
-	if len(ts.timeline) == 0 {
-		return minDelay, false
-	}
-
-	lastT := ts.timeline[0]
-
-	for i := 1; i < len(ts.timeline); i++ {
-		t := ts.timeline[i]
-
-		delay := t.Sub(lastT)
-		if delay < minDelay {
-			minDelay = delay
-		}
-
-		lastT = t
-	}
-
-	return minDelay, true
-}
-
-func handleTestRequest(
-	t *testing.T,
-	mapper map[string]testServerResponse,
-	w http.ResponseWriter,
-	r *http.Request,
-) {
-	t.Helper()
-
-	respConf, ok := mapper[r.RequestURI]
-	if !ok {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
-	if respConf.fn != nil {
-		respConf.fn(w, r)
-		return
-	}
-
-	if respConf.contentLength > 0 {
-		w.Header().Set("Content-Length", strconv.FormatInt(respConf.contentLength, 10))
-	}
-
-	w.WriteHeader(respConf.status)
-	_, err := w.Write(respConf.body)
-	require.NoError(t, err)
-
-	if respConf.omitContentLength {
-		flusher, ok := w.(http.Flusher)
-		require.True(t, ok)
-
-		flusher.Flush()
-	}
-}
-
 func generateDocumentWithLinks(t *testing.T, linkCount int) []byte {
 	t.Helper()
 
@@ -253,25 +110,6 @@ func generateDocumentWithLinks(t *testing.T, linkCount int) []byte {
 	fmt.Fprint(&pageSb, "</body>")
 
 	return []byte(pageSb.String())
-}
-
-func hijackAndCloseHandler(t *testing.T) http.HandlerFunc {
-	t.Helper()
-
-	return func(w http.ResponseWriter, _ *http.Request) {
-		hj, ok := w.(http.Hijacker)
-		if !ok {
-			t.Fatal("hijacking not supported")
-		}
-
-		conn, _, err := hj.Hijack()
-		if err != nil {
-			t.Error(err)
-			return
-		}
-
-		require.NoError(t, conn.Close())
-	}
 }
 
 func testURL(t *testing.T, rawURL string) *url.URL {

@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	tu "code/internal/testutils"
 )
 
 func TestEngineAnalyze_WellFormedPage(t *testing.T) {
@@ -22,14 +24,14 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 	nestedURL, err := url.Parse("http://" + host + "/working")
 	require.NoError(t, err)
 
-	server := setupTestServer(t, host,
-		map[string]testServerResponse{
-			"/":        {status: 200, body: pageContent},
-			"/working": {status: 200},
-			"/broken":  {status: 500},
+	server := tu.SetupTestServer(t, host,
+		map[string]tu.TestServerResponse{
+			"/":        {Status: 200, Body: pageContent},
+			"/working": {Status: 200},
+			"/broken":  {Status: 500},
 		},
-		map[string]testServerResponse{
-			"/home": {status: 200, body: pageContent},
+		map[string]tu.TestServerResponse{
+			"/home": {Status: 200, Body: pageContent},
 		},
 	)
 
@@ -80,7 +82,7 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 		URL:        rootURL.String(),
 		Depth:      1,
 		UserAgent:  "test",
-		HTTPClient: server.client,
+		HTTPClient: server.Client,
 	})
 	require.NoError(t, err)
 
@@ -91,9 +93,9 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 }
 
 func TestEningeAnalyze_RootURLFailed(t *testing.T) {
-	server := setupTestServer(t, "test.com",
-		map[string]testServerResponse{
-			"/": {status: 500},
+	server := tu.SetupTestServer(t, "test.com",
+		map[string]tu.TestServerResponse{
+			"/": {Status: 500},
 		},
 		nil,
 	)
@@ -103,7 +105,7 @@ func TestEningeAnalyze_RootURLFailed(t *testing.T) {
 
 	e, err := New(Options{
 		URL:        rootURL.String(),
-		HTTPClient: server.client,
+		HTTPClient: server.Client,
 	})
 	require.NoError(t, err)
 
@@ -133,11 +135,11 @@ func TestEngineAnalyze_PagesFetchedOnce(t *testing.T) {
 	rootURL, err := url.Parse("http://" + host)
 	require.NoError(t, err)
 
-	server := setupTestServer(t, host,
-		map[string]testServerResponse{
-			"/":        {status: 200, body: pageContent},
-			"/working": {status: 200, body: pageContent},
-			"/broken":  {status: 500},
+	server := tu.SetupTestServer(t, host,
+		map[string]tu.TestServerResponse{
+			"/":        {Status: 200, Body: pageContent},
+			"/working": {Status: 200, Body: pageContent},
+			"/broken":  {Status: 500},
 		},
 		nil,
 	)
@@ -145,7 +147,7 @@ func TestEngineAnalyze_PagesFetchedOnce(t *testing.T) {
 	e, err := New(Options{
 		URL:        rootURL.String(),
 		Depth:      5,
-		HTTPClient: server.client,
+		HTTPClient: server.Client,
 	})
 	require.NoError(t, err)
 
@@ -199,9 +201,9 @@ func TestEngineAnalyze_PagesFetchedOnce(t *testing.T) {
 
 	requireReportMatches(t, want, got)
 
-	require.Equal(t, 1, server.callsCountTo("/"))
-	require.Equal(t, 1, server.callsCountTo("/working"))
-	require.Equal(t, 1, server.callsCountTo("/broken"))
+	require.Equal(t, 1, server.CallsCountTo("/"))
+	require.Equal(t, 1, server.CallsCountTo("/working"))
+	require.Equal(t, 1, server.CallsCountTo("/broken"))
 }
 
 func TestEngineAnalyze_RestrictDepth(t *testing.T) {
@@ -211,11 +213,11 @@ func TestEngineAnalyze_RestrictDepth(t *testing.T) {
 	rootURL, err := url.Parse("http://" + host)
 	require.NoError(t, err)
 
-	server := setupTestServer(t, host,
-		map[string]testServerResponse{
-			"/":        {status: 200, body: pageContent},
-			"/working": {status: 200},
-			"/broken":  {status: 500},
+	server := tu.SetupTestServer(t, host,
+		map[string]tu.TestServerResponse{
+			"/":        {Status: 200, Body: pageContent},
+			"/working": {Status: 200},
+			"/broken":  {Status: 500},
 		},
 		nil,
 	)
@@ -224,7 +226,7 @@ func TestEngineAnalyze_RestrictDepth(t *testing.T) {
 		URL:        rootURL.String(),
 		Depth:      0,
 		UserAgent:  "test",
-		HTTPClient: server.client,
+		HTTPClient: server.Client,
 	})
 	require.NoError(t, err)
 
@@ -256,9 +258,9 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 
 		analyzeEnded := make(chan struct{})
 
-		server := setupTestServer(t, host,
-			map[string]testServerResponse{
-				"/": {status: 200, body: pageContent},
+		server := tu.SetupTestServer(t, host,
+			map[string]tu.TestServerResponse{
+				"/": {Status: 200, Body: pageContent},
 			},
 			nil,
 		)
@@ -267,7 +269,7 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 			URL:        rootURL.String(),
 			Depth:      100,
 			UserAgent:  "test",
-			HTTPClient: server.client,
+			HTTPClient: server.Client,
 		})
 		require.NoError(t, err)
 
@@ -284,7 +286,7 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 
 		<-analyzeEnded
 
-		serverCallsWithoutDelay = server.totalCallsCount()
+		serverCallsWithoutDelay = server.TotalCallsCount()
 	})
 
 	t.Run("with delay", func(t *testing.T) {
@@ -299,9 +301,9 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 
 		analyzeEnded := make(chan struct{})
 
-		server := setupTestServer(t, host,
-			map[string]testServerResponse{
-				"/": {status: 200, body: pageContent},
+		server := tu.SetupTestServer(t, host,
+			map[string]tu.TestServerResponse{
+				"/": {Status: 200, Body: pageContent},
 			},
 			nil,
 		)
@@ -311,7 +313,7 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 			Depth:      100,
 			Delay:      delay,
 			UserAgent:  "test",
-			HTTPClient: server.client,
+			HTTPClient: server.Client,
 		})
 		require.NoError(t, err)
 
@@ -328,13 +330,13 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 
 		<-analyzeEnded
 
-		totalCallsCount := server.totalCallsCount()
+		totalCallsCount := server.TotalCallsCount()
 		serverCallsWithDelay = totalCallsCount
 
 		require.Greater(t, totalCallsCount, 0)
 		require.LessOrEqual(t, totalCallsCount, maxCalls)
 
-		m, ok := server.minDelayBetweenRequests()
+		m, ok := server.MinDelayBetweenRequests()
 		require.True(t, ok)
 
 		require.GreaterOrEqual(t, m, delay-slack)
@@ -352,9 +354,9 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 
 		analyzeEnded := make(chan struct{})
 
-		server := setupTestServer(t, host,
-			map[string]testServerResponse{
-				"/": {status: 200, body: pageContent},
+		server := tu.SetupTestServer(t, host,
+			map[string]tu.TestServerResponse{
+				"/": {Status: 200, Body: pageContent},
 			},
 			nil,
 		)
@@ -364,7 +366,7 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 			Depth:      100,
 			Delay:      delay,
 			UserAgent:  "test",
-			HTTPClient: server.client,
+			HTTPClient: server.Client,
 		})
 		require.NoError(t, err)
 
@@ -386,7 +388,7 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 		delayAfterCancel := time.Since(cancelStart)
 		require.Less(t, delayAfterCancel, time.Second*5)
 
-		require.Greater(t, server.totalCallsCount(), 0)
+		require.Greater(t, server.TotalCallsCount(), 0)
 	})
 }
 
@@ -436,7 +438,7 @@ func TestEngineAnalyze_RetriesOnRootURL(t *testing.T) {
 			retries:      3,
 			wantCalls:    4,
 			wantError:    io.EOF,
-			onServerFail: hijackAndCloseHandler(t),
+			onServerFail: tu.HijackAndCloseHandler(t),
 		},
 	}
 
@@ -444,8 +446,8 @@ func TestEngineAnalyze_RetriesOnRootURL(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			serverFailsLeft := tc.serverFails
 
-			server := setupTestServer(t, "test.com", map[string]testServerResponse{
-				"/": {fn: func(w http.ResponseWriter, r *http.Request) {
+			server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerResponse{
+				"/": {Fn: func(w http.ResponseWriter, r *http.Request) {
 					if serverFailsLeft > 0 {
 						serverFailsLeft--
 
@@ -460,7 +462,7 @@ func TestEngineAnalyze_RetriesOnRootURL(t *testing.T) {
 
 			e, err := New(Options{
 				URL:        "http://test.com",
-				HTTPClient: server.client,
+				HTTPClient: server.Client,
 				Retries:    tc.retries,
 			})
 			require.NoError(t, err)
@@ -473,7 +475,7 @@ func TestEngineAnalyze_RetriesOnRootURL(t *testing.T) {
 			gotPage := got.Pages[0]
 			require.Equal(t, gotPage.HTTPStatus, tc.wantStatus, "status")
 			require.ErrorIs(t, gotPage.Error, tc.wantError)
-			require.Equal(t, tc.wantCalls, server.totalCallsCount())
+			require.Equal(t, tc.wantCalls, server.TotalCallsCount())
 		})
 	}
 }
@@ -544,7 +546,7 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 			wantPages:       1,
 			wantBrokenLinks: 1,
 			wantError:       io.EOF,
-			onServerFail:    hijackAndCloseHandler(t),
+			onServerFail:    tu.HijackAndCloseHandler(t),
 		},
 	}
 
@@ -554,9 +556,9 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			serverFailsLeft := tc.serverFails
 
-			server := setupTestServer(t, "test.com", map[string]testServerResponse{
-				"/": {status: 200, body: pageContent},
-				"/link": {fn: func(w http.ResponseWriter, r *http.Request) {
+			server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerResponse{
+				"/": {Status: 200, Body: pageContent},
+				"/link": {Fn: func(w http.ResponseWriter, r *http.Request) {
 					if serverFailsLeft > 0 {
 						serverFailsLeft--
 
@@ -571,7 +573,7 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 
 			e, err := New(Options{
 				URL:        "http://test.com",
-				HTTPClient: server.client,
+				HTTPClient: server.Client,
 				Depth:      1,
 				Retries:    tc.retries,
 			})
@@ -595,7 +597,7 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 				require.ErrorIs(t, gotBrokenLink.Error, tc.wantError)
 			}
 
-			require.Equal(t, tc.wantNestedCalls, server.callsCountTo("/link"))
+			require.Equal(t, tc.wantNestedCalls, server.CallsCountTo("/link"))
 		})
 	}
 }
@@ -603,12 +605,12 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 func TestEngineAnalyze_Assets(t *testing.T) {
 	pageContent := loadFixture(t, "page-with-assets.html")
 
-	server := setupTestServer(t, "test.com", map[string]testServerResponse{
-		"/":            {status: 200, body: pageContent},
-		"/style.css":   {status: 200},
-		"/script.js":   {fn: hijackAndCloseHandler(t)},
-		"/image-1.png": {status: 200, body: make([]byte, 121), omitContentLength: true},
-		"/image-2.png": {status: 200, contentLength: 121},
+	server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerResponse{
+		"/":            {Status: 200, Body: pageContent},
+		"/style.css":   {Status: 200},
+		"/script.js":   {Fn: tu.HijackAndCloseHandler(t)},
+		"/image-1.png": {Status: 200, Body: make([]byte, 121), OmitContentLength: true},
+		"/image-2.png": {Status: 200, ContentLength: 121},
 	}, nil)
 
 	rootURL := testURL(t, "http://test.com")
@@ -616,7 +618,7 @@ func TestEngineAnalyze_Assets(t *testing.T) {
 	e, err := New(Options{
 		URL:        rootURL.String(),
 		Depth:      1,
-		HTTPClient: server.client,
+		HTTPClient: server.Client,
 	})
 	require.NoError(t, err)
 
@@ -672,11 +674,11 @@ func TestEngineAnalyze_Assets(t *testing.T) {
 	_, err = e.Analyze(t.Context())
 	require.NoError(t, err)
 
-	require.Equal(t, 1, server.callsCountTo("/style.css"))
-	require.Equal(t, 1, server.callsCountTo("/script.js"))
-	require.Equal(t, 1, server.callsCountTo("/image-1.png"))
-	require.Equal(t, 1, server.callsCountTo("/image-2.png"))
-	require.Equal(t, 1, server.callsCountTo("/image-3.png"))
+	require.Equal(t, 1, server.CallsCountTo("/style.css"))
+	require.Equal(t, 1, server.CallsCountTo("/script.js"))
+	require.Equal(t, 1, server.CallsCountTo("/image-1.png"))
+	require.Equal(t, 1, server.CallsCountTo("/image-2.png"))
+	require.Equal(t, 1, server.CallsCountTo("/image-3.png"))
 }
 
 func TestEngineAnalyze_PageWithoutLinks(t *testing.T) {
@@ -685,9 +687,9 @@ func TestEngineAnalyze_PageWithoutLinks(t *testing.T) {
 	rootURL, err := url.Parse("http://test.com")
 	require.NoError(t, err)
 
-	server := setupTestServer(t, "test.com",
-		map[string]testServerResponse{
-			"/": {status: 200, body: pageContent},
+	server := tu.SetupTestServer(t, "test.com",
+		map[string]tu.TestServerResponse{
+			"/": {Status: 200, Body: pageContent},
 		},
 		nil,
 	)
@@ -714,7 +716,7 @@ func TestEngineAnalyze_PageWithoutLinks(t *testing.T) {
 		URL:        rootURL.String(),
 		Depth:      1,
 		UserAgent:  "test",
-		HTTPClient: server.client,
+		HTTPClient: server.Client,
 	})
 	require.NoError(t, err)
 
@@ -725,8 +727,8 @@ func TestEngineAnalyze_PageWithoutLinks(t *testing.T) {
 }
 
 func TestEngineAnalyze_NetworkError(t *testing.T) {
-	server := setupTestServer(t, "test.com", map[string]testServerResponse{
-		"/": {fn: hijackAndCloseHandler(t)},
+	server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerResponse{
+		"/": {Fn: tu.HijackAndCloseHandler(t)},
 	}, nil)
 
 	rootURL, err := url.Parse("http://test.com")
@@ -748,7 +750,7 @@ func TestEngineAnalyze_NetworkError(t *testing.T) {
 		URL:        rootURL.String(),
 		Depth:      1,
 		UserAgent:  "test",
-		HTTPClient: server.client,
+		HTTPClient: server.Client,
 	})
 	require.NoError(t, err)
 
@@ -762,11 +764,11 @@ func TestEngineAnalyze_CancelContextBeforeStart(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	server := setupTestServer(t, "test.com", nil, nil)
+	server := tu.SetupTestServer(t, "test.com", nil, nil)
 
 	e, err := New(Options{
 		URL:        "http://test.com",
-		HTTPClient: server.client,
+		HTTPClient: server.Client,
 	})
 	require.NoError(t, err)
 
@@ -786,9 +788,9 @@ func TestEngineAnalyze_CancelContextAfterLinksCollected(t *testing.T) {
 	blockReq := make(chan struct{})
 	defer close(blockReq)
 
-	server := setupTestServer(t, "test.com", map[string]testServerResponse{
-		"/": {status: 200, body: pageContent},
-		"/working": {fn: func(w http.ResponseWriter, _ *http.Request) {
+	server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerResponse{
+		"/": {Status: 200, Body: pageContent},
+		"/working": {Fn: func(w http.ResponseWriter, _ *http.Request) {
 			close(reqStarted)
 			<-blockReq
 			w.WriteHeader(http.StatusOK)
@@ -800,7 +802,7 @@ func TestEngineAnalyze_CancelContextAfterLinksCollected(t *testing.T) {
 
 	e, err := New(Options{
 		URL:        rootURL.String(),
-		HTTPClient: server.client,
+		HTTPClient: server.Client,
 		Depth:      1,
 	})
 	require.NoError(t, err)
