@@ -1,7 +1,10 @@
 package testutils
 
 import (
+	"context"
+	"crypto/tls"
 	"math"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -24,7 +27,6 @@ type TestServerRoute struct {
 // TestServer is test server that uses [httptest.Server] under the hood and collects metrics
 type TestServer struct {
 	Client   *http.Client
-	srv      *httptest.Server
 	calls    map[string]int
 	timeline []time.Time
 	mu       sync.Mutex
@@ -45,7 +47,7 @@ func SetupTestServer(
 		mu:       sync.Mutex{},
 	}
 
-	server.srv = httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		reqT := time.Now()
 
 		defer func() {
@@ -61,15 +63,32 @@ func SetupTestServer(
 		}
 
 		handleTestRequest(t, internalRoutesMapper, w, r)
-	}))
-
-	client := server.srv.Client()
-	client.Transport.(*http.Transport).DisableKeepAlives = true // nolint:forcetypeassert
-	server.Client = client
-
-	t.Cleanup(func() {
-		server.srv.Close()
 	})
+
+	plainServer := httptest.NewServer(handler)
+	t.Cleanup(plainServer.Close)
+
+	secureServer := httptest.NewTLSServer(handler)
+	t.Cleanup(secureServer.Close)
+
+	var d net.Dialer
+
+	tr := &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			target := plainServer.Listener.Addr().String()
+			if _, port, _ := net.SplitHostPort(addr); port == "443" { // nolint: errcheck
+				target = secureServer.Listener.Addr().String()
+			}
+
+			return d.DialContext(ctx, network, target)
+		},
+		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+		DisableKeepAlives: true,
+	}
+
+	client := &http.Client{Transport: tr}
+
+	server.Client = client
 
 	return server
 }
