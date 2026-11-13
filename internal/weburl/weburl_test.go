@@ -54,6 +54,11 @@ func TestParse(t *testing.T) {
 			want:  "http://example.com/page",
 		},
 		{
+			name:  "hash omited",
+			input: "http://example.com/page#some-section",
+			want:  "http://example.com/page",
+		},
+		{
 			name:  "failed to parse",
 			input: "://example.com",
 			err:   ErrFailedToParse,

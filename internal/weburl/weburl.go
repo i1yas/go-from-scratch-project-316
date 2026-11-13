@@ -31,7 +31,11 @@ func Parse(rawURL string) (*url.URL, error) {
 // NormalizeURL noramlizes given URL
 func NormalizeURL(u *url.URL) {
 	u.Host = strings.ToLower(u.Host)
+
 	u.Path = strings.TrimRight(u.Path, "/")
+
+	u.Fragment = ""
+	u.RawFragment = ""
 }
 
 // ValidateURL validates given URL
