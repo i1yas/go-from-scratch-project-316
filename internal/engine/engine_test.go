@@ -92,6 +92,48 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 	requireReportMatches(t, want, got)
 }
 
+func TestEngineAnalyze_BadSEO(t *testing.T) {
+	pageContent := loadFixture(t, "bad-seo.html")
+
+	server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerRoute{
+		"/": {Status: 200, Body: pageContent},
+	}, nil)
+
+	rootURL := testURL(t, "http://test.com")
+
+	e, err := New(Options{
+		URL:        rootURL.String(),
+		HTTPClient: server.Client,
+	})
+	require.NoError(t, err)
+
+	want := Report{
+		RootURL: rootURL,
+		Depth:   0,
+		Pages: []PageReport{
+			{
+				URL:        rootURL,
+				Depth:      0,
+				HTTPStatus: 200,
+				Status:     "ok",
+				SEO: PageSEO{
+					HasTitle:       false,
+					HasDescription: false,
+					HasH1:          false,
+					Title:          "",
+					Description:    "",
+				},
+				Error: nil,
+			},
+		},
+	}
+
+	got, err := e.Analyze(t.Context())
+	require.NoError(t, err)
+
+	requireReportMatches(t, want, got)
+}
+
 func TestEngine_CustomClock(t *testing.T) {
 	pageContent := loadFixture(t, "page-without-links.html")
 
