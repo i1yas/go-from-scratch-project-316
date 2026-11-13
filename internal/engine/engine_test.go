@@ -153,6 +153,56 @@ func TestEngineAnalyze_CustomUserAgent(t *testing.T) {
 	}
 }
 
+func TestEngineAnalyze_RssFeed(t *testing.T) {
+	rssPageContent := loadFixture(t, "rss-feed.xml")
+
+	server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerRoute{
+		"/": {Status: 200, Body: generatePageWithLinks([]string{"/rss"})},
+		"/rss": {Fn: func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/rss+xml")
+			w.WriteHeader(http.StatusOK)
+
+			_, err := w.Write(rssPageContent)
+			require.NoError(t, err)
+		}},
+	}, nil)
+
+	e, err := New(Options{
+		URL:        "http://test.com",
+		Depth:      1,
+		HTTPClient: server.Client,
+	})
+	require.NoError(t, err)
+
+	got, err := e.Analyze(t.Context())
+	require.NoError(t, err)
+
+	want := Report{
+		RootURL: testURL(t, "http://test.com"),
+		Depth:   1,
+		Pages: []PageReport{
+			{
+				URL:        testURL(t, "http://test.com"),
+				Depth:      0,
+				Status:     "ok",
+				HTTPStatus: 200,
+			},
+			{
+				URL:        testURL(t, "http://test.com/rss"),
+				Depth:      1,
+				Status:     "ok",
+				HTTPStatus: 200,
+				SEO: PageSEO{
+					HasTitle: true,
+					Title:    "Test RSS-feed",
+				},
+			},
+		},
+	}
+
+	requireReportMatches(t, want, got)
+}
+
 func TestEngineAnalyze_BadSEO(t *testing.T) {
 	pageContent := loadFixture(t, "bad-seo.html")
 
