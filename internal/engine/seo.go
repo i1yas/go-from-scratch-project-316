@@ -32,10 +32,7 @@ func analyzeSEO(doc *goquery.Document) PageSEO {
 		seo.Description = desc
 	}
 
-	hasH1 := doc.Find(`html > body > h1`).Length() > 0
-	if hasH1 {
-		seo.HasH1 = true
-	}
+	seo.HasH1 = doc.Find(`h1`).Length() > 0
 
 	return seo
 }
