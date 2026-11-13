@@ -917,7 +917,12 @@ func TestEngineAnalyze_CancelContextAfterLinksCollected(t *testing.T) {
 		requireReportMatches(t, want, got)
 	})
 
-	<-reqStarted
+	select {
+	case <-reqStarted:
+		break
+	case <-time.After(time.Second * 5):
+		t.Fatal("waited for request start too long")
+	}
 
 	cancel()
 
