@@ -323,6 +323,12 @@ func (e *Engine) processDocument(ctx context.Context, rawDocument io.Reader, pag
 	links := htmlparser.ExtractLinks(doc, e.rootURL)
 
 	for _, link := range links {
+		if err := weburl.ValidateURL(link.URL); err != nil {
+			continue
+		}
+
+		weburl.NormalizeURL(link.URL)
+
 		bl, isBroken := e.brokenLinks[link.URL.String()]
 		if isBroken {
 			page.BrokenLinks[link.URL.String()] = bl
