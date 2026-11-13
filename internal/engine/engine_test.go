@@ -88,6 +88,28 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 	requireReportMatches(t, want, got)
 }
 
+func TestEngineAnalyze_RootURLNormalized(t *testing.T) {
+	inputRootURL := "http://TEST.com/page//#section"
+	wantRootURL := "http://test.com/page"
+
+	server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerRoute{
+		"/": {Status: 200},
+	}, nil)
+
+	e, err := New(Options{
+		URL:        inputRootURL,
+		HTTPClient: server.Client,
+	})
+	require.NoError(t, err)
+
+	got, err := e.Analyze(t.Context())
+	require.NoError(t, err)
+
+	require.Equal(t, wantRootURL, got.RootURL.String())
+	require.Equal(t, 1, len(got.Pages))
+	require.Equal(t, wantRootURL, got.Pages[0].URL.String())
+}
+
 func TestEngineAnalyze_CustomUserAgent(t *testing.T) {
 	wantUserAgent := "custom-user-agent"
 
