@@ -92,6 +92,44 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 	requireReportMatches(t, want, got)
 }
 
+func TestEngineAnalyze_CustomUserAgent(t *testing.T) {
+	wantUserAgent := "custom-user-agent"
+
+	gotUserAgent := make(chan string)
+	analyzeEnded := make(chan struct{})
+
+	server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerRoute{
+		"/": {Fn: func(w http.ResponseWriter, r *http.Request) {
+			gotUserAgent <- r.UserAgent()
+
+			w.WriteHeader(http.StatusOK)
+		}},
+	}, nil)
+
+	e, err := New(Options{
+		URL:        "http://test.com",
+		HTTPClient: server.Client,
+		UserAgent:  wantUserAgent,
+	})
+	require.NoError(t, err)
+
+	go func() {
+		_, err := e.Analyze(t.Context())
+		require.NoError(t, err)
+
+		close(analyzeEnded)
+	}()
+
+	select {
+	case v := <-gotUserAgent:
+		require.Equal(t, wantUserAgent, v)
+	case <-time.After(time.Second * 5):
+		t.Fatal("waited request too long")
+	}
+
+	<-analyzeEnded
+}
+
 func TestEngineAnalyze_BadSEO(t *testing.T) {
 	pageContent := loadFixture(t, "bad-seo.html")
 
