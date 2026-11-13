@@ -20,8 +20,8 @@ type PageReport struct {
 	URL          string       `json:"url"`
 	Depth        int          `json:"depth"`
 	HTTPStatus   int          `json:"http_status"`
-	Status       string       `json:"status"`
-	Error        string       `json:"error"`
+	Status       string       `json:"status,omitempty"`
+	Error        string       `json:"error,omitempty"`
 	SEO          PageSEO      `json:"seo"`
 	Assets       []Asset      `json:"assets"`
 	BrokenLinks  []BrokenLink `json:"broken_links"`
@@ -40,17 +40,17 @@ type PageSEO struct {
 // BrokenLink contains formatted info about broken link
 type BrokenLink struct {
 	URL        string `json:"url"`
-	StatusCode int    `json:"status_code"`
-	Error      string `json:"error"`
+	StatusCode int    `json:"status_code,omitempty"`
+	Error      string `json:"error,omitempty"`
 }
 
 // Asset contains formatted info about asset
 type Asset struct {
 	URL        string `json:"url"`
 	Type       string `json:"type"`
-	StatusCode int    `json:"status_code"`
 	SizeBytes  int64  `json:"size_bytes"`
-	Error      string `json:"error"`
+	StatusCode int    `json:"status_code,omitempty"`
+	Error      string `json:"error,omitempty"`
 }
 
 // Format format Report from engine
