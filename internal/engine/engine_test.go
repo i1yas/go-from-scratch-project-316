@@ -471,10 +471,7 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 		require.Greater(t, totalCallsCount, 0)
 		require.LessOrEqual(t, totalCallsCount, maxCalls)
 
-		m, ok := server.MinDelayBetweenRequests()
-		require.True(t, ok)
-
-		require.GreaterOrEqual(t, m, delay-slack)
+		require.GreaterOrEqual(t, server.MinDelayBetweenRequests(), delay-slack)
 	})
 
 	t.Run("more calls without delay", func(t *testing.T) {

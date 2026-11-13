@@ -112,7 +112,7 @@ func (ts *TestServer) CallsCountTo(uri string) int {
 }
 
 // MinDelayBetweenRequests calculates min delay between requests
-func (ts *TestServer) MinDelayBetweenRequests() (time.Duration, bool) {
+func (ts *TestServer) MinDelayBetweenRequests() time.Duration {
 	defer ts.mu.Unlock()
 
 	ts.mu.Lock()
@@ -120,7 +120,7 @@ func (ts *TestServer) MinDelayBetweenRequests() (time.Duration, bool) {
 	minDelay := time.Duration(math.MaxInt64)
 
 	if len(ts.timeline) == 0 {
-		return minDelay, false
+		return minDelay
 	}
 
 	lastT := ts.timeline[0]
@@ -136,7 +136,7 @@ func (ts *TestServer) MinDelayBetweenRequests() (time.Duration, bool) {
 		lastT = t
 	}
 
-	return minDelay, true
+	return minDelay
 }
 
 func handleTestRequest(
