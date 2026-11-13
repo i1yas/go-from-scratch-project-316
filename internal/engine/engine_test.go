@@ -127,7 +127,12 @@ func TestEngineAnalyze_CustomUserAgent(t *testing.T) {
 		t.Fatal("waited request too long")
 	}
 
-	<-analyzeEnded
+	select {
+	case <-analyzeEnded:
+		break
+	case <-time.After(time.Second * 5):
+		t.Fatal("waited analyze too long")
+	}
 }
 
 func TestEngineAnalyze_BadSEO(t *testing.T) {
@@ -390,7 +395,12 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 
 		cancel()
 
-		<-analyzeEnded
+		select {
+		case <-analyzeEnded:
+			break
+		case <-time.After(time.Second * 5):
+			t.Fatal("waited analyze too long")
+		}
 
 		serverCallsWithoutDelay = server.TotalCallsCount()
 	})
@@ -434,7 +444,12 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 
 		cancel()
 
-		<-analyzeEnded
+		select {
+		case <-analyzeEnded:
+			break
+		case <-time.After(time.Second * 5):
+			t.Fatal("waited analyze too long")
+		}
 
 		totalCallsCount := server.TotalCallsCount()
 		serverCallsWithDelay = totalCallsCount
@@ -489,7 +504,12 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 
 		cancel()
 
-		<-analyzeEnded
+		select {
+		case <-analyzeEnded:
+			break
+		case <-time.After(time.Second * 5):
+			t.Fatal("waited analyze too long")
+		}
 
 		delayAfterCancel := time.Since(cancelStart)
 		require.Less(t, delayAfterCancel, time.Second*5)
