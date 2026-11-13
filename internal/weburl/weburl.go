@@ -28,12 +28,13 @@ func Parse(rawURL string) (*url.URL, error) {
 	return parsed, nil
 }
 
-// NoramlizeURL noramlizes given URL
+// NormalizeURL noramlizes given URL
 func NormalizeURL(u *url.URL) {
 	u.Host = strings.ToLower(u.Host)
+	u.Path = strings.TrimRight(u.Path, "/")
 }
 
-// / ValidateURL validates given URL
+// ValidateURL validates given URL
 func ValidateURL(u *url.URL) error {
 	switch u.Scheme {
 	case "http", "https":

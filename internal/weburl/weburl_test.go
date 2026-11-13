@@ -44,6 +44,16 @@ func TestParse(t *testing.T) {
 			want:  "http://example.com",
 		},
 		{
+			name:  "root trailing slashes omited",
+			input: "http://example.com///",
+			want:  "http://example.com",
+		},
+		{
+			name:  "non-root trailing slashes omited",
+			input: "http://example.com/page///",
+			want:  "http://example.com/page",
+		},
+		{
 			name:  "failed to parse",
 			input: "://example.com",
 			err:   ErrFailedToParse,
@@ -61,7 +71,7 @@ func TestParse(t *testing.T) {
 			require.ErrorIs(t, err, tc.err)
 
 			if tc.err == nil {
-				require.Equal(t, gotParsed.String(), tc.want)
+				require.Equal(t, tc.want, gotParsed.String())
 			}
 		})
 	}
