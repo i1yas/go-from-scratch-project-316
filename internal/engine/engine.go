@@ -29,7 +29,6 @@ type Options struct {
 	Timeout     time.Duration
 	UserAgent   string
 	Concurrency int
-	IndentJSON  bool
 
 	HTTPClient *http.Client
 	Clock      func() time.Time

@@ -2,6 +2,8 @@ package crawler
 
 import (
 	"context"
+	"net/http"
+	"time"
 
 	"code/internal/engine"
 	"code/internal/formatter"
@@ -12,8 +14,20 @@ var (
 	ErrHTTPClientNotProvided = engine.ErrHTTPClientNotProvided
 )
 
-// Options contains options for crawling
-type Options engine.Options
+// Options contains options for analyzing website
+type Options struct {
+	URL         string
+	Depth       int
+	Retries     int
+	Delay       time.Duration
+	Timeout     time.Duration
+	UserAgent   string
+	Concurrency int
+	IndentJSON  bool
+
+	HTTPClient *http.Client
+	Clock      func() time.Time
+}
 
 type (
 	// Report contains collected infromation about website
@@ -26,9 +40,20 @@ type (
 	BrokenLink formatter.BrokenLink
 )
 
-// Analyze runs crawler and returns JSON report
+// Analyze runs crawler on website and returns JSON report
 func Analyze(ctx context.Context, opts Options) ([]byte, error) {
-	e, err := engine.New(engine.Options(opts))
+	e, err := engine.New(engine.Options(engine.Options{
+		URL:         opts.URL,
+		Depth:       opts.Depth,
+		Retries:     opts.Retries,
+		Delay:       opts.Delay,
+		Timeout:     opts.Timeout,
+		UserAgent:   opts.UserAgent,
+		Concurrency: opts.Concurrency,
+
+		HTTPClient: opts.HTTPClient,
+		Clock:      opts.Clock,
+	}))
 	if err != nil {
 		return nil, err
 	}
