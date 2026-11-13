@@ -11,7 +11,18 @@ type PageSEO struct {
 	Description    string
 }
 
-func analyzeSEO(doc *goquery.Document) PageSEO {
+func analyzeSEO(doc *goquery.Document, docType documentType) PageSEO {
+	switch docType {
+	case documentTypeHTML:
+		return analyzeSEOFromHTML(doc)
+	case documentTypeRSS:
+		return analyzeSEOFromRSS(doc)
+	default:
+		return PageSEO{}
+	}
+}
+
+func analyzeSEOFromHTML(doc *goquery.Document) PageSEO {
 	seo := PageSEO{}
 
 	title := doc.
@@ -33,6 +44,21 @@ func analyzeSEO(doc *goquery.Document) PageSEO {
 	}
 
 	seo.HasH1 = doc.Find(`h1`).Length() > 0
+
+	return seo
+}
+
+func analyzeSEOFromRSS(doc *goquery.Document) PageSEO {
+	seo := PageSEO{}
+
+	title := doc.
+		Find("channel > title").
+		First().
+		Text()
+	if title != "" {
+		seo.HasTitle = true
+		seo.Title = title
+	}
 
 	return seo
 }

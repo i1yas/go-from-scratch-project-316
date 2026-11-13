@@ -12,10 +12,6 @@ func isRetriableStatus(statusCode int) bool {
 	return statusCode == 429 || statusCode >= 500
 }
 
-func isHTMLContentType(contentType string) bool {
-	return strings.HasPrefix(contentType, "text/html")
-}
-
 func statusText(statusLine string) string {
 	for i, r := range statusLine {
 		if unicode.IsSpace(r) {

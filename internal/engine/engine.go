@@ -288,12 +288,14 @@ func (e *Engine) processPageResponse(
 	page.Status = statusText(resp.Status)
 
 	respContentType := resp.Header.Get("Content-Type")
-	if !isHTMLContentType(respContentType) {
+
+	docType, isDocument := documentTypeFromContentType(respContentType)
+	if !isDocument {
 		page.isIncluded = true
 		return nil
 	}
 
-	err := e.processDocument(ctx, resp.Body, page)
+	err := e.processDocument(ctx, resp.Body, docType, page)
 	if errors.Is(err, context.Canceled) {
 		page.isIncluded = true
 		return err
@@ -308,15 +310,24 @@ func (e *Engine) processPageResponse(
 	return nil
 }
 
-func (e *Engine) processDocument(ctx context.Context, rawDocument io.Reader, page *PageReport) error {
+func (e *Engine) processDocument(
+	ctx context.Context,
+	rawDocument io.Reader,
+	docType documentType,
+	page *PageReport,
+) error {
 	doc, err := goquery.NewDocumentFromReader(rawDocument)
 	if err != nil {
 		return nil
 	}
 
-	page.SEO = analyzeSEO(doc)
+	page.SEO = analyzeSEO(doc, docType)
 
 	if page.Depth == e.depth {
+		return nil
+	}
+
+	if docType != documentTypeHTML {
 		return nil
 	}
 
