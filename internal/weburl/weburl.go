@@ -12,21 +12,35 @@ var (
 	ErrUnsupportedProtocol = errors.New("unsupported protocol")
 )
 
-// Parse parses and validates URL
+// Parse parses, validates and noramlizes URL
 func Parse(rawURL string) (*url.URL, error) {
 	parsed, err := url.Parse(rawURL)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrFailedToParse, err)
 	}
 
-	switch parsed.Scheme {
+	if err := ValidateURL(parsed); err != nil {
+		return nil, err
+	}
+
+	NormalizeURL(parsed)
+
+	return parsed, nil
+}
+
+// NoramlizeURL noramlizes given URL
+func NormalizeURL(u *url.URL) {
+	u.Host = strings.ToLower(u.Host)
+}
+
+// / ValidateURL validates given URL
+func ValidateURL(u *url.URL) error {
+	switch u.Scheme {
 	case "http", "https":
 		break
 	default:
-		return nil, fmt.Errorf("%w '%s'", ErrUnsupportedProtocol, parsed.Scheme)
+		return fmt.Errorf("%w '%s'", ErrUnsupportedProtocol, u.Scheme)
 	}
 
-	parsed.Host = strings.ToLower(parsed.Host)
-
-	return parsed, nil
+	return nil
 }
