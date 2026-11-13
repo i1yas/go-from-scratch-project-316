@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"net/url"
 	"sync"
 	"testing"
 	"time"
@@ -18,11 +17,8 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 	pageContent := loadFixture(t, "well-formed-page.html")
 	host := "test.com"
 
-	rootURL, err := url.Parse("http://" + host)
-	require.NoError(t, err)
-
-	nestedURL, err := url.Parse("http://" + host + "/working")
-	require.NoError(t, err)
+	rootURL := testURL(t, "http://"+host)
+	nestedURL := testURL(t, "http://"+host+"/working")
 
 	server := tu.SetupTestServer(t, host,
 		map[string]tu.TestServerRoute{
@@ -211,8 +207,7 @@ func TestEningeAnalyze_RootURLFailed(t *testing.T) {
 		nil,
 	)
 
-	rootURL, err := url.Parse("http://test.com")
-	require.NoError(t, err)
+	rootURL := testURL(t, "http://test.com")
 
 	e, err := New(Options{
 		URL:        rootURL.String(),
@@ -243,8 +238,7 @@ func TestEngineAnalyze_PagesFetchedOnce(t *testing.T) {
 	pageContent := loadFixture(t, "well-formed-page.html")
 	host := "test.com"
 
-	rootURL, err := url.Parse("http://" + host)
-	require.NoError(t, err)
+	rootURL := testURL(t, "http://"+host)
 
 	server := tu.SetupTestServer(t, host,
 		map[string]tu.TestServerRoute{
@@ -321,8 +315,7 @@ func TestEngineAnalyze_RestrictDepth(t *testing.T) {
 	pageContent := loadFixture(t, "well-formed-page.html")
 	host := "test.com"
 
-	rootURL, err := url.Parse("http://" + host)
-	require.NoError(t, err)
+	rootURL := testURL(t, "http://"+host)
 
 	server := tu.SetupTestServer(t, host,
 		map[string]tu.TestServerRoute{
@@ -353,8 +346,7 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 
 	host := "test.com"
 
-	rootURL, err := url.Parse("http://" + host)
-	require.NoError(t, err)
+	rootURL := testURL(t, "http://"+host)
 
 	analyzeDuration := time.Millisecond * 100
 
@@ -810,8 +802,7 @@ func TestEngineAnalyze_Assets(t *testing.T) {
 func TestEngineAnalyze_PageWithoutLinks(t *testing.T) {
 	pageContent := loadFixture(t, "page-without-links.html")
 
-	rootURL, err := url.Parse("http://test.com")
-	require.NoError(t, err)
+	rootURL := testURL(t, "http://test.com")
 
 	server := tu.SetupTestServer(t, "test.com",
 		map[string]tu.TestServerRoute{
@@ -857,8 +848,7 @@ func TestEngineAnalyze_NetworkError(t *testing.T) {
 		"/": {Fn: tu.HijackAndCloseHandler(t)},
 	}, nil)
 
-	rootURL, err := url.Parse("http://test.com")
-	require.NoError(t, err)
+	rootURL := testURL(t, "http://test.com")
 
 	want := Report{
 		RootURL: rootURL,
@@ -923,8 +913,7 @@ func TestEngineAnalyze_CancelContextAfterLinksCollected(t *testing.T) {
 		}},
 	}, nil)
 
-	rootURL, err := url.Parse("http://test.com")
-	require.NoError(t, err)
+	rootURL := testURL(t, "http://test.com")
 
 	e, err := New(Options{
 		URL:        rootURL.String(),
