@@ -362,9 +362,63 @@ func TestEngineAnalyze_RestrictDepth(t *testing.T) {
 	require.Equal(t, 1, len(got.Pages), "page count")
 }
 
+func TestEngineAnalyze_RecordPageMinDepth(t *testing.T) {
+	// we testing two paths to get to /target page:
+	// (1) root -> /nested       -> /nested/deep -> /target
+	// (2) root -> /nested-block -> /target
+	//
+	// In path (1) routes do not block requests, /target has depth=3;
+	// In path (2) /nested-block route blocks request until target is requested once, /target has depth=2.
+	//
+	// This way /target page first discovered with depth=3 and then with depth=2
+	wantDepth := 2
+
+	rootPageContent := generatePageWithLinks([]string{"/nested", "/nested-block"})
+	nestedPageContent := generatePageWithLinks([]string{"/nested/deep"})
+	pageWithTargetLink := generatePageWithLinks([]string{"/target"})
+
+	targetVisited := make(chan struct{}, 1)
+
+	server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerRoute{
+		"/":            {Status: 200, Body: rootPageContent},
+		"/nested":      {Status: 200, Body: nestedPageContent},
+		"/nested/deep": {Status: 200, Body: pageWithTargetLink},
+		"/nested-block": {Fn: func(w http.ResponseWriter, _ *http.Request) {
+			<-targetVisited
+
+			time.Sleep(time.Millisecond * 100)
+
+			w.WriteHeader(http.StatusOK)
+
+			_, err := w.Write(pageWithTargetLink)
+			require.NoError(t, err)
+		}},
+		"/target": {Fn: func(w http.ResponseWriter, _ *http.Request) {
+			targetVisited <- struct{}{}
+
+			w.WriteHeader(http.StatusOK)
+		}},
+	}, nil)
+
+	e, err := New(Options{
+		URL:        "http://test.com",
+		Depth:      5,
+		HTTPClient: server.Client,
+	})
+	require.NoError(t, err)
+
+	got, err := e.Analyze(t.Context())
+	require.NoError(t, err)
+
+	gotPage, ok := got.findPageByRawURL("http://test.com/target")
+	require.True(t, ok, "did not found /target page in report")
+
+	require.Equal(t, wantDepth, gotPage.Depth)
+}
+
 func TestEngineAnalyze_Delay(t *testing.T) {
 	linkCount := 10
-	pageContent := generateDocumentWithLinks(t, linkCount)
+	pageContent := generatePageWithLinksAmount(linkCount)
 
 	host := "test.com"
 

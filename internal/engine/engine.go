@@ -106,16 +106,17 @@ func (e *Engine) Analyze(ctx context.Context) (Report, error) {
 }
 
 func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
-	_, pageIsAnalyzed := e.pages[pageURL.String()]
-	if pageIsAnalyzed {
-		return nil
-	}
-
 	parent := parentPageFromContext(ctx)
 
 	depth := 0
 	if parent != nil {
 		depth = parent.Depth + 1
+	}
+
+	analyzedPage, pageIsAnalyzed := e.pages[pageURL.String()]
+	if pageIsAnalyzed {
+		analyzedPage.Depth = min(analyzedPage.Depth, depth)
+		return nil
 	}
 
 	page := PageReport{

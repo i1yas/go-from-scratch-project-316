@@ -96,20 +96,29 @@ func loadFixture(t *testing.T, name string) []byte {
 	return data
 }
 
-func generateDocumentWithLinks(t *testing.T, linkCount int) []byte {
-	t.Helper()
+func generatePageWithLinks(links []string) []byte {
+	var sb strings.Builder
 
-	var pageSb strings.Builder
-	fmt.Fprint(&pageSb, "<body>")
+	sb.WriteString("<body>")
+
+	for _, link := range links {
+		fmt.Fprintf(&sb, `<a href="%s">link</a>`, link)
+	}
+
+	sb.WriteString("</body>")
+
+	return []byte(sb.String())
+}
+
+func generatePageWithLinksAmount(linkCount int) []byte {
+	links := make([]string, linkCount)
 
 	for i := range linkCount {
 		n := i + 1
-		fmt.Fprintf(&pageSb, `<a href="/link-%d">Link %d</a>`, n, n)
+		links[i] = fmt.Sprintf(`/link-%d`, n)
 	}
 
-	fmt.Fprint(&pageSb, "</body>")
-
-	return []byte(pageSb.String())
+	return generatePageWithLinks(links)
 }
 
 func testURL(t *testing.T, rawURL string) *url.URL {
