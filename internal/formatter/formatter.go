@@ -2,6 +2,8 @@ package formatter
 
 import (
 	"encoding/json"
+	"slices"
+	"strings"
 	"time"
 
 	"code/internal/engine"
@@ -55,18 +57,7 @@ type Asset struct {
 
 // Format format Report from engine
 func Format(report engine.Report, isIndented bool) ([]byte, error) {
-	pages := make([]PageReport, len(report.Pages))
-
-	for i, page := range report.Pages {
-		pages[i] = convertPageReport(page)
-	}
-
-	reportDTO := Report{
-		RootURL:     report.RootURL.String(),
-		Depth:       report.Depth,
-		GeneratedAt: formatTime(report.GeneratedAt),
-		Pages:       pages,
-	}
+	reportDTO := convertReport(report)
 
 	if !isIndented {
 		reportJSON, err := json.Marshal(reportDTO)
@@ -83,6 +74,23 @@ func Format(report engine.Report, isIndented bool) ([]byte, error) {
 	}
 
 	return reportJSON, nil
+}
+
+func convertReport(report engine.Report) Report {
+	pages := make([]PageReport, len(report.Pages))
+
+	for i, page := range report.Pages {
+		pages[i] = convertPageReport(page)
+	}
+
+	slices.SortFunc(pages, comparePages)
+
+	return Report{
+		RootURL:     report.RootURL.String(),
+		Depth:       report.Depth,
+		GeneratedAt: formatTime(report.GeneratedAt),
+		Pages:       pages,
+	}
 }
 
 func convertPageReport(page engine.PageReport) PageReport {
@@ -104,6 +112,9 @@ func convertPageReport(page engine.PageReport) PageReport {
 		Title:          page.SEO.Title,
 		Description:    page.SEO.Description,
 	}
+
+	slices.SortFunc(assets, compareAssets)
+	slices.SortFunc(brokenLinks, compareBrokenLinks)
 
 	report := PageReport{
 		URL:          page.URL.String(),
@@ -153,4 +164,16 @@ func convertBrokenLink(bl engine.BrokenLink) BrokenLink {
 
 func formatTime(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
+}
+
+func comparePages(a, b PageReport) int {
+	return strings.Compare(a.URL, b.URL)
+}
+
+func compareAssets(a, b Asset) int {
+	return strings.Compare(a.URL, b.URL)
+}
+
+func compareBrokenLinks(a, b BrokenLink) int {
+	return strings.Compare(a.URL, b.URL)
 }
