@@ -52,7 +52,7 @@ func analyzeSEOFromRSS(doc *goquery.Document) PageSEO {
 	seo := PageSEO{}
 
 	title := doc.
-		Find("channel > title").
+		Find("title").
 		First().
 		Text()
 	if title != "" {
