@@ -9,9 +9,12 @@ const (
 	documentTypeRSS  documentType = "rss"
 )
 
-var supportedDocumentTypes = map[string]documentType{
+var contentTypeToDocumentType = map[string]documentType{
 	"text/html":           documentTypeHTML,
 	"application/rss+xml": documentTypeRSS,
+	"application/xml":     documentTypeRSS,
+	"text/atom+xml":       documentTypeRSS,
+	"text/xml":            documentTypeRSS,
 }
 
 func documentTypeFromContentType(contentType string) (documentType, bool) {
@@ -22,7 +25,7 @@ func documentTypeFromContentType(contentType string) (documentType, bool) {
 	parts := strings.Split(contentType, ";")
 	t := strings.TrimSpace(parts[0])
 
-	docType, ok := supportedDocumentTypes[t]
+	docType, ok := contentTypeToDocumentType[t]
 	if !ok {
 		return "", false
 	}
