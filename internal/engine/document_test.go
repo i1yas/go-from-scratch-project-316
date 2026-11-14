@@ -14,13 +14,23 @@ func TestDocumentTypeFromContentType(t *testing.T) {
 		isNotSupported bool
 	}{
 		{
-			name:        "html type",
+			name:        "text.html is html",
 			contentType: "text/html",
 			want:        documentTypeHTML,
 		},
 		{
-			name:        "rss type",
+			name:        "application.rss+xml is rss",
 			contentType: "application/rss+xml",
+			want:        documentTypeRSS,
+		},
+		{
+			name:        "application.xml is rss",
+			contentType: "application/xml",
+			want:        documentTypeRSS,
+		},
+		{
+			name:        "text.xml is rss",
+			contentType: "text/xml",
 			want:        documentTypeRSS,
 		},
 		{
@@ -45,15 +55,8 @@ func TestDocumentTypeFromContentType(t *testing.T) {
 		},
 
 		{
-			name:           "application/xml is not supported",
-			isNotSupported: true,
-		},
-		{
-			name:           "text/xml is not supported",
-			isNotSupported: true,
-		},
-		{
-			name:           "text/plain is not supported",
+			name:           "text.plain is not supported",
+			contentType:    "text/plain",
 			isNotSupported: true,
 		},
 	}
