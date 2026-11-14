@@ -23,7 +23,8 @@ const (
 )
 
 func TestAnalyze_NormalPage(t *testing.T) {
-	pageContent := loadFixture(t, "normal-page.html")
+	rootPageContent := loadFixture(t, "normal-page.html")
+	nestedPageContent := loadFixture(t, "page-without-links.html")
 	wantReport := loadFixture(t, "normal-page-output.txt")
 
 	wantTime, err := time.Parse(time.RFC3339, testTime)
@@ -31,8 +32,11 @@ func TestAnalyze_NormalPage(t *testing.T) {
 
 	server := tu.SetupTestServer(t, testHost,
 		map[string]tu.TestServerRoute{
-			"/":                {Status: 200, Body: pageContent},
-			"/static/logo.png": {Status: 200, Body: make([]byte, 12345)},
+			"/":                 {Status: 200, Body: rootPageContent},
+			"/link":             {Status: 200, Body: nestedPageContent},
+			"/broken":           {Status: 500},
+			"/static/logo.png":  {Status: 200, Body: make([]byte, 12345)},
+			"/static/script.js": {Status: 200, Body: make([]byte, 567)},
 		},
 		nil,
 	)
