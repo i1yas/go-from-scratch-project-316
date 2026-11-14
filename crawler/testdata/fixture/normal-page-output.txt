@@ -53,8 +53,6 @@
         "description": "",
         "has_h1": false
       },
-      "broken_links": [],
-      "assets": [],
       "discovered_at": "2024-06-01T12:34:56Z"
     }
   ]

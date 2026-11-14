@@ -25,8 +25,8 @@ type PageReport struct {
 	Status       string       `json:"status,omitempty"`
 	Error        string       `json:"error,omitempty"`
 	SEO          PageSEO      `json:"seo"`
-	Assets       []Asset      `json:"assets"`
-	BrokenLinks  []BrokenLink `json:"broken_links"`
+	Assets       []Asset      `json:"assets,omitempty"`
+	BrokenLinks  []BrokenLink `json:"broken_links,omitempty"`
 	DiscoveredAt string       `json:"discovered_at"`
 }
 
