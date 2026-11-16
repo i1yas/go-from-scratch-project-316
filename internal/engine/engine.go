@@ -15,24 +15,7 @@ import (
 	"code/internal/weburl"
 )
 
-var (
-	ErrInvalidRootURL        = errors.New("invalid root url")
-	ErrHTTPClientNotProvided = errors.New("http client not provided")
-)
-
-// Options contains engine options
-type Options struct {
-	URL         string
-	Depth       int
-	Retries     int
-	Delay       time.Duration
-	Timeout     time.Duration
-	UserAgent   string
-	Concurrency int
-
-	HTTPClient *http.Client
-	Clock      func() time.Time
-}
+var ErrInvalidRootURL = errors.New("invalid root url")
 
 // Engine is crawler engine
 type Engine struct {
@@ -52,17 +35,21 @@ type Engine struct {
 
 // New constructs new crawler engine
 func New(opts Options) (*Engine, error) {
-	rootURL, err := weburl.Parse(opts.URL)
-	if err != nil {
-		return nil, fmt.Errorf("%w '%s': %w", ErrInvalidRootURL, opts.URL, err)
-	}
-
-	if opts.HTTPClient == nil {
-		return nil, ErrHTTPClientNotProvided
+	if opts.Concurrency == 0 {
+		opts.Concurrency = 1
 	}
 
 	if opts.Clock == nil {
 		opts.Clock = time.Now
+	}
+
+	if err := validateOptions(opts); err != nil {
+		return nil, err
+	}
+
+	rootURL, err := weburl.Parse(opts.URL)
+	if err != nil {
+		return nil, fmt.Errorf("%w '%s': %w", ErrInvalidRootURL, opts.URL, err)
 	}
 
 	client := opts.HTTPClient

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"net/http"
 	"time"
 
@@ -15,12 +14,12 @@ import (
 
 var (
 	ErrNoRootURL      = errors.New("no root url provided")
-	ErrInvalidDepth   = errors.New("invalid depth value")
-	ErrInvalidRetries = errors.New("invalid retries amount")
-	ErrInvalidDelay   = errors.New("invalid delay duration")
-	ErrInvalidTimeout = errors.New("invalid timeout duration")
+	ErrInvalidDepth   = crawler.ErrInvalidDepth
+	ErrInvalidRetries = crawler.ErrInvalidRetries
+	ErrInvalidDelay   = crawler.ErrInvalidDelay
+	ErrInvalidTimeout = crawler.ErrInvalidTimeout
 	ErrInvalidRPS     = errors.New("invalid RPS value")
-	ErrInvalidWorkers = errors.New("invalid amount of workers")
+	ErrInvalidWorkers = fmt.Errorf("invalid workers: %w", crawler.ErrInvalidConcurrency)
 )
 
 // BuildCommand build crawler command
@@ -112,40 +111,28 @@ func processFlags(flags []cli.Flag) []cli.Flag {
 
 func parseOptions(cmd *cli.Command) (crawler.Options, error) {
 	rootURL := cmd.StringArg("url")
-	if rootURL == "" {
-		return crawler.Options{}, ErrNoRootURL
-	}
 
 	depth := cmd.Int("depth")
-	if err := validateInt(depth, 0, math.MaxInt, ErrInvalidDepth); err != nil {
-		return crawler.Options{}, err
-	}
 
 	retries := cmd.Int("retries")
-	if err := validateInt(retries, 0, math.MaxInt, ErrInvalidRetries); err != nil {
-		return crawler.Options{}, err
-	}
 
 	delay, err := time.ParseDuration(cmd.String("delay"))
 	if err != nil {
-		return crawler.Options{}, fmt.Errorf("%w: %w", ErrInvalidDelay, err)
+		return crawler.Options{}, fmt.Errorf("%w: failed to parse: %w", ErrInvalidDelay, err)
 	}
 
 	timeout, err := time.ParseDuration(cmd.String("timeout"))
 	if err != nil {
-		return crawler.Options{}, fmt.Errorf("%w: %w", ErrInvalidTimeout, err)
+		return crawler.Options{}, fmt.Errorf("%w: failed to parse: %w", ErrInvalidTimeout, err)
 	}
 
 	workers := cmd.Int("workers")
-	if err := validateInt(workers, 1, math.MaxInt, ErrInvalidWorkers); err != nil {
-		return crawler.Options{}, err
-	}
 
 	userAgent := cmd.String("user-agent")
 
 	rps := cmd.Int("rps")
-	if err := validateInt(rps, 0, math.MaxInt, ErrInvalidRPS); err != nil {
-		return crawler.Options{}, err
+	if rps < 0 {
+		return crawler.Options{}, fmt.Errorf("%w: negative value %d", ErrInvalidRPS, rps)
 	}
 
 	if rps > 0 {
@@ -163,16 +150,4 @@ func parseOptions(cmd *cli.Command) (crawler.Options, error) {
 	}
 
 	return opts, nil
-}
-
-func validateInt(value, minValue, maxValue int, baseErr error) error {
-	if value < minValue {
-		return fmt.Errorf("%w: too small, got %d, min is %d", baseErr, value, minValue)
-	}
-
-	if value > maxValue {
-		return fmt.Errorf("%w: too big, got %d, max is %d", baseErr, value, maxValue)
-	}
-
-	return nil
 }

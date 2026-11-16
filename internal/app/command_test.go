@@ -68,27 +68,6 @@ func TestParseOptions(t *testing.T) {
 			},
 		},
 		{
-			name: "invalid url",
-			args: []string{""},
-			err:  ErrNoRootURL,
-		},
-		{
-			name: "invalid depth",
-			args: []string{
-				"http://test.com",
-				"--depth", "-5",
-			},
-			err: ErrInvalidDepth,
-		},
-		{
-			name: "invalid retries",
-			args: []string{
-				"http://test.com",
-				"--retries", "-5",
-			},
-			err: ErrInvalidRetries,
-		},
-		{
 			name: "invalid delay",
 			args: []string{
 				"http://test.com",
@@ -111,14 +90,6 @@ func TestParseOptions(t *testing.T) {
 				"--rps", "-5",
 			},
 			err: ErrInvalidRPS,
-		},
-		{
-			name: "invalid workers",
-			args: []string{
-				"http://test.com",
-				"--workers", "-5",
-			},
-			err: ErrInvalidWorkers,
 		},
 	}
 

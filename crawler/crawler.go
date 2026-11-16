@@ -13,6 +13,11 @@ import (
 var (
 	ErrInvalidRootURL        = engine.ErrInvalidRootURL
 	ErrHTTPClientNotProvided = engine.ErrHTTPClientNotProvided
+	ErrInvalidDepth          = engine.ErrInvalidDepth
+	ErrInvalidRetries        = engine.ErrInvalidRetries
+	ErrInvalidDelay          = engine.ErrInvalidDelay
+	ErrInvalidTimeout        = engine.ErrInvalidTimeout
+	ErrInvalidConcurrency    = engine.ErrInvalidConcurrency
 )
 
 // Options contains options for analyzing website
