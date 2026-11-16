@@ -978,9 +978,10 @@ func TestEngineAnalyze_NetworkError(t *testing.T) {
 		Depth:   1,
 		Pages: []PageReport{
 			{
-				URL:   rootURL,
-				Depth: 0,
-				Error: io.EOF,
+				URL:    rootURL,
+				Depth:  0,
+				Status: "error",
+				Error:  io.EOF,
 			},
 		},
 	}

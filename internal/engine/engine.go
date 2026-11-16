@@ -136,6 +136,7 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 	case err != nil:
 		if parent == nil {
 			page.Error = err
+			page.Status = "error"
 			page.isIncluded = true
 
 			return nil
