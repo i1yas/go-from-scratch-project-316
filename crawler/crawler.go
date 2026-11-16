@@ -2,6 +2,7 @@ package crawler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -59,7 +60,7 @@ func Analyze(ctx context.Context, opts Options) ([]byte, error) {
 	}
 
 	report, err := e.Analyze(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, context.Canceled) {
 		return nil, err
 	}
 
