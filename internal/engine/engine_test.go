@@ -1104,18 +1104,77 @@ func TestEngineAnalyze_CancelContextAfterLinksCollected(t *testing.T) {
 }
 
 func TestEngine_InvalidOptions(t *testing.T) {
-	t.Run("invalid root url", func(t *testing.T) {
-		_, err := New(Options{
-			URL:        "invalid",
-			HTTPClient: &http.Client{},
-		})
-		require.ErrorIs(t, err, ErrInvalidRootURL)
-	})
+	cases := []struct {
+		name string
+		opts Options
+		err  error
+	}{
+		{
+			name: "invalid root url",
+			opts: Options{
+				URL:        "invalid",
+				HTTPClient: &http.Client{},
+			},
+			err: ErrInvalidRootURL,
+		},
+		{
+			name: "invalid root url",
+			opts: Options{
+				URL: "http://test.com",
+			},
+			err: ErrHTTPClientNotProvided,
+		},
+		{
+			name: "invalid depth",
+			opts: Options{
+				URL:        "http://test.com",
+				Depth:      -1,
+				HTTPClient: &http.Client{},
+			},
+			err: ErrInvalidDepth,
+		},
+		{
+			name: "invalid retries",
+			opts: Options{
+				URL:        "http://test.com",
+				Retries:    -1,
+				HTTPClient: &http.Client{},
+			},
+			err: ErrInvalidRetries,
+		},
+		{
+			name: "invalid delay",
+			opts: Options{
+				URL:        "http://test.com",
+				Delay:      -time.Second,
+				HTTPClient: &http.Client{},
+			},
+			err: ErrInvalidDelay,
+		},
+		{
+			name: "invalid timeout",
+			opts: Options{
+				URL:        "http://test.com",
+				Timeout:    -time.Second,
+				HTTPClient: &http.Client{},
+			},
+			err: ErrInvalidTimeout,
+		},
+		{
+			name: "invalid concurrency",
+			opts: Options{
+				URL:         "http://test.com",
+				Concurrency: -1,
+				HTTPClient:  &http.Client{},
+			},
+			err: ErrInvalidConcurrency,
+		},
+	}
 
-	t.Run("missing http client", func(t *testing.T) {
-		_, err := New(Options{
-			URL: "http://test.com",
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := New(tc.opts)
+			require.ErrorIs(t, err, tc.err)
 		})
-		require.ErrorIs(t, err, ErrHTTPClientNotProvided)
-	})
+	}
 }
