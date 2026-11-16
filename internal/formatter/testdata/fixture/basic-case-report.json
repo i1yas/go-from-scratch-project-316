@@ -1,0 +1,52 @@
+{
+    "root_url": "http://test.com",
+    "depth": 10,
+    "generated_at": "2024-06-01T12:34:56Z",
+    "pages": [
+        {
+            "url": "http://test.com",
+            "depth": 0,
+            "http_status": 200,
+            "status": "ok",
+            "seo": {
+                "has_title": true,
+                "title": "Test title",
+                "has_description": true,
+                "description": "Test description",
+                "has_h1": true
+            },
+            "assets": [
+                {
+                    "url": "http://test.com/static/script.js",
+                    "type": "script",
+                    "size_bytes": 123,
+                    "status_code": 200
+                },
+                {
+                    "url": "http://test.com/static/style.css",
+                    "type": "style",
+                    "size_bytes": 456,
+                    "status_code": 200
+                }
+            ],
+            "broken_links": [],
+            "discovered_at": "2024-06-01T12:34:56Z"
+        },
+        {
+            "url": "http://test.com/empty",
+            "depth": 1,
+            "http_status": 200,
+            "status": "ok",
+            "seo": {
+                "has_title": false,
+                "title": "",
+                "has_description": false,
+                "description": "",
+                "has_h1": false
+            },
+            "assets": [],
+            "broken_links": [],
+            "discovered_at": "2024-06-01T12:34:56Z"
+        }
+    ]
+}
