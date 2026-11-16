@@ -150,7 +150,6 @@ func TestAnalyze_PartialReportAfterContextCancel(t *testing.T) {
 	defer close(blockReq)
 
 	nestedURLVisited := make(chan struct{})
-	analyzeEnded := make(chan struct{})
 
 	pageContent := []byte(`
 	<html>
@@ -185,24 +184,19 @@ func TestAnalyze_PartialReportAfterContextCancel(t *testing.T) {
 	rootURL := "http://test.com"
 
 	go func() {
-		defer close(analyzeEnded)
-
-		got, err := Analyze(ctx, Options{
-			URL:        rootURL,
-			Depth:      1,
-			HTTPClient: server.Client,
-			Clock:      func() time.Time { return wantTime },
-		})
-		require.NoError(t, err)
-
-		require.JSONEq(t, string(want), string(got))
+		<-nestedURLVisited
+		cancel()
 	}()
 
-	<-nestedURLVisited
+	got, err := Analyze(ctx, Options{
+		URL:        rootURL,
+		Depth:      1,
+		HTTPClient: server.Client,
+		Clock:      func() time.Time { return wantTime },
+	})
+	require.NoError(t, err)
 
-	cancel()
-
-	<-analyzeEnded
+	require.JSONEq(t, string(want), string(got))
 }
 
 func loadFixture(t *testing.T, name string) []byte {
