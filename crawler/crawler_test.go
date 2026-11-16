@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -144,17 +145,64 @@ func TestAnalyze_NetworkError(t *testing.T) {
 	require.Contains(t, got.Pages[0].Error, io.EOF.Error())
 }
 
-func TestAnalyze_ErrorOnCanceledContext(t *testing.T) {
-	ctx, cancel := context.WithCancel(t.Context())
+func TestAnalyze_PartialReportAfterContextCancel(t *testing.T) {
+	blockReq := make(chan struct{})
+	defer close(blockReq)
+
+	nestedURLVisited := make(chan struct{})
+	analyzeEnded := make(chan struct{})
+
+	pageContent := []byte(`
+	<html>
+		<body>
+			<a href="/link">Link</a>
+		</body>
+	</html>
+	`)
+
+	wantTime, err := time.Parse(time.RFC3339, testTime)
+	require.NoError(t, err)
+
+	want := loadFixture(t, "partial-report-output.txt")
+
+	server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerRoute{
+		"/": {Fn: func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(200)
+
+			_, err := w.Write(pageContent)
+			require.NoError(t, err)
+		}},
+		"/link": {Fn: func(_ http.ResponseWriter, _ *http.Request) {
+			close(nestedURLVisited)
+
+			<-blockReq
+		}},
+	}, nil)
+
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second*5)
+	defer cancel()
+
+	rootURL := "http://test.com"
+
+	go func() {
+		defer close(analyzeEnded)
+
+		got, err := Analyze(ctx, Options{
+			URL:        rootURL,
+			Depth:      1,
+			HTTPClient: server.Client,
+			Clock:      func() time.Time { return wantTime },
+		})
+		require.NoError(t, err)
+
+		require.JSONEq(t, string(want), string(got))
+	}()
+
+	<-nestedURLVisited
+
 	cancel()
 
-	server := tu.SetupTestServer(t, testHost, nil, nil)
-
-	_, err := Analyze(ctx, Options{
-		URL:        testRootURL,
-		HTTPClient: server.Client,
-	})
-	require.ErrorIs(t, err, context.Canceled)
+	<-analyzeEnded
 }
 
 func loadFixture(t *testing.T, name string) []byte {
