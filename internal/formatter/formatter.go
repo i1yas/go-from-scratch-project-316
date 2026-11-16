@@ -94,8 +94,15 @@ func convertReport(report engine.Report) Report {
 }
 
 func convertPageReport(page engine.PageReport) PageReport {
-	assets := make([]Asset, 0, len(page.Assets))
-	brokenLinks := make([]BrokenLink, 0, len(page.BrokenLinks))
+	var assets []Asset
+	if page.Assets != nil {
+		assets = make([]Asset, 0, len(page.Assets))
+	}
+
+	var brokenLinks []BrokenLink
+	if page.BrokenLinks != nil {
+		brokenLinks = make([]BrokenLink, 0, len(page.BrokenLinks))
+	}
 
 	for _, asset := range page.Assets {
 		assets = append(assets, convertAsset(*asset))
@@ -122,9 +129,9 @@ func convertPageReport(page engine.PageReport) PageReport {
 		HTTPStatus:   page.HTTPStatus,
 		Status:       page.Status,
 		SEO:          seo,
+		DiscoveredAt: formatTime(page.DiscoveredAt),
 		Assets:       assets,
 		BrokenLinks:  brokenLinks,
-		DiscoveredAt: formatTime(page.DiscoveredAt),
 	}
 
 	if page.Error != nil {
