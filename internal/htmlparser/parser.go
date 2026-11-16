@@ -125,12 +125,12 @@ func extractRawLinkFromNode(node *html.Node) (string, LinkType, bool) {
 
 		return href, LinkTypeAnchor, true
 	case "link":
-		rel, ok := linkFromLinkTag(node)
+		href, ok := cssHrefFromLinkTag(node)
 		if !ok {
 			return "", LinkTypeOther, false
 		}
 
-		return rel, LinkTypeStyle, true
+		return href, LinkTypeStyle, true
 	case "script":
 		src, ok := attr(node, "src")
 		if !ok {
@@ -151,7 +151,7 @@ func extractRawLinkFromNode(node *html.Node) (string, LinkType, bool) {
 	return "", LinkTypeOther, false
 }
 
-func linkFromLinkTag(node *html.Node) (string, bool) {
+func cssHrefFromLinkTag(node *html.Node) (string, bool) {
 	href, ok := attr(node, "href")
 	if !ok {
 		return "", false
