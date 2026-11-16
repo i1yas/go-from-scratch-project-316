@@ -130,6 +130,12 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 
 	resp, err := e.fetch(ctx, pageURL)
 
+	defer func() {
+		if resp != nil {
+			resp.Body.Close() // nolint: errcheck
+		}
+	}()
+
 	switch {
 	case errors.Is(err, context.Canceled):
 		return err
