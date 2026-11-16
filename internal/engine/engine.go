@@ -139,6 +139,9 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 			page.Status = "error"
 			page.isIncluded = true
 
+			page.Assets = nil
+			page.BrokenLinks = nil
+
 			return nil
 		}
 

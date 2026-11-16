@@ -998,6 +998,9 @@ func TestEngineAnalyze_NetworkError(t *testing.T) {
 	require.NoError(t, err)
 
 	requireReportMatches(t, want, got)
+
+	require.Nil(t, got.Pages[0].Assets)
+	require.Nil(t, got.Pages[0].BrokenLinks)
 }
 
 func TestEngineAnalyze_CancelContextBeforeStart(t *testing.T) {
