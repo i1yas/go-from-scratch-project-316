@@ -37,6 +37,12 @@
           "type": "script",
           "status_code": 200,
           "size_bytes": 567
+        },
+        {
+          "url": "https://example.com/static/style.css",
+          "type": "style",
+          "status_code": 200,
+          "size_bytes": 456
         }
       ],
       "discovered_at": "2024-06-01T12:34:56Z"

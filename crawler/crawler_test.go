@@ -36,6 +36,7 @@ func TestAnalyze_NormalPage(t *testing.T) {
 			"/link":             {Status: 200, Body: nestedPageContent},
 			"/broken":           {Status: 500},
 			"/static/logo.png":  {Status: 200, Body: make([]byte, 12345)},
+			"/static/style.css": {Status: 200, Body: make([]byte, 456)},
 			"/static/script.js": {Status: 200, Body: make([]byte, 567)},
 		},
 		nil,

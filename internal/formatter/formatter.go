@@ -171,7 +171,10 @@ func comparePages(a, b PageReport) int {
 }
 
 func compareAssets(a, b Asset) int {
-	return strings.Compare(a.URL, b.URL)
+	return strings.Compare(
+		a.Type+a.URL,
+		b.Type+b.URL,
+	)
 }
 
 func compareBrokenLinks(a, b BrokenLink) int {
