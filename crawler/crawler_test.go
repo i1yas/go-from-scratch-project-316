@@ -199,6 +199,80 @@ func TestAnalyze_PartialReportAfterContextCancel(t *testing.T) {
 	require.JSONEq(t, string(want), string(got))
 }
 
+func TestAnalyze_InvalidOptions(t *testing.T) {
+	cases := []struct {
+		name string
+		opts Options
+		err  error
+	}{
+		{
+			name: "http client not provided",
+			opts: Options{},
+			err:  ErrHTTPClientNotProvided,
+		},
+		{
+			name: "invalid root url",
+			opts: Options{
+				URL:        "invalid",
+				HTTPClient: &http.Client{},
+			},
+			err: ErrInvalidRootURL,
+		},
+		{
+			name: "invalid depth",
+			opts: Options{
+				URL:        testRootURL,
+				HTTPClient: &http.Client{},
+				Depth:      -1,
+			},
+			err: ErrInvalidDepth,
+		},
+		{
+			name: "invalid retires",
+			opts: Options{
+				URL:        testRootURL,
+				HTTPClient: &http.Client{},
+				Retries:    -1,
+			},
+			err: ErrInvalidRetries,
+		},
+		{
+			name: "invalid delay",
+			opts: Options{
+				URL:        testRootURL,
+				HTTPClient: &http.Client{},
+				Delay:      -time.Second,
+			},
+			err: ErrInvalidDelay,
+		},
+		{
+			name: "invalid timeout",
+			opts: Options{
+				URL:        testRootURL,
+				HTTPClient: &http.Client{},
+				Timeout:    -time.Second,
+			},
+			err: ErrInvalidTimeout,
+		},
+		{
+			name: "invalid concurrency",
+			opts: Options{
+				URL:         testRootURL,
+				HTTPClient:  &http.Client{},
+				Concurrency: -1,
+			},
+			err: ErrInvalidConcurrency,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := Analyze(t.Context(), tc.opts)
+			require.ErrorIs(t, err, tc.err)
+		})
+	}
+}
+
 func loadFixture(t *testing.T, name string) []byte {
 	t.Helper()
 
