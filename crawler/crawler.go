@@ -3,6 +3,7 @@ package crawler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -18,6 +19,7 @@ var (
 	ErrInvalidDelay          = engine.ErrInvalidDelay
 	ErrInvalidTimeout        = engine.ErrInvalidTimeout
 	ErrInvalidConcurrency    = engine.ErrInvalidConcurrency
+	ErrFailedToFormatReport  = errors.New("failed to format report")
 )
 
 // Options contains options for analyzing website
@@ -69,5 +71,10 @@ func Analyze(ctx context.Context, opts Options) ([]byte, error) {
 		return nil, err
 	}
 
-	return formatter.Format(report, opts.IndentJSON)
+	output, err := formatter.Format(report, opts.IndentJSON)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrFailedToFormatReport, err)
+	}
+
+	return output, nil
 }
