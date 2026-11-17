@@ -633,6 +633,91 @@ func TestEngineAnalyze_Delay(t *testing.T) {
 	})
 }
 
+func TestEngineAnalyze_Timeout(t *testing.T) {
+	t.Run("on root page", func(t *testing.T) {
+		blockReq := make(chan struct{})
+		defer close(blockReq)
+
+		server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerRoute{
+			"/": {Fn: func(w http.ResponseWriter, _ *http.Request) {
+				<-blockReq
+				w.WriteHeader(200)
+			}},
+		}, nil)
+
+		e, err := New(Options{
+			URL:        "http://test.com",
+			Depth:      0,
+			Timeout:    time.Microsecond,
+			HTTPClient: server.Client,
+		})
+		require.NoError(t, err)
+
+		got, err := e.Analyze(t.Context())
+		require.NoError(t, err)
+
+		want := Report{
+			RootURL: testURL(t, "http://test.com"),
+			Depth:   0,
+			Pages: []PageReport{
+				{
+					URL:    testURL(t, "http://test.com"),
+					Depth:  0,
+					Error:  context.DeadlineExceeded,
+					Status: "error",
+				},
+			},
+		}
+
+		requireReportMatches(t, want, got)
+	})
+
+	t.Run("on nested page", func(t *testing.T) {
+		blockReq := make(chan struct{})
+		defer close(blockReq)
+
+		server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerRoute{
+			"/": {Status: 200, Body: generatePageWithLinks([]string{"/nested"})},
+			"/nested": {Fn: func(w http.ResponseWriter, _ *http.Request) {
+				<-blockReq
+				w.WriteHeader(200)
+			}},
+		}, nil)
+
+		e, err := New(Options{
+			URL:        "http://test.com",
+			Depth:      1,
+			Timeout:    time.Millisecond * 50,
+			HTTPClient: server.Client,
+		})
+		require.NoError(t, err)
+
+		got, err := e.Analyze(t.Context())
+		require.NoError(t, err)
+
+		want := Report{
+			RootURL: testURL(t, "http://test.com"),
+			Depth:   1,
+			Pages: []PageReport{
+				{
+					URL:        testURL(t, "http://test.com"),
+					Depth:      0,
+					HTTPStatus: 200,
+					Status:     "ok",
+					BrokenLinks: map[string]*BrokenLink{
+						"http://test.com/nested": {
+							URL:   testURL(t, "http://test.com/nested"),
+							Error: context.DeadlineExceeded,
+						},
+					},
+				},
+			},
+		}
+
+		requireReportMatches(t, want, got)
+	})
+}
+
 func TestEngineAnalyze_RetriesOnRootURL(t *testing.T) {
 	cases := []struct {
 		name         string
