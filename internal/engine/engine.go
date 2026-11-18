@@ -71,7 +71,10 @@ func New(opts Options) (*Engine, error) {
 
 // Analyze crawls website
 func (e *Engine) Analyze(ctx context.Context) (Report, error) {
-	err := e.analyzePage(ctx, e.rootURL)
+	err := e.analyzeLink(ctx, pageLink{
+		url: e.rootURL,
+		typ: htmlparser.LinkTypeAnchor,
+	})
 	if err != nil && !errors.Is(err, context.Canceled) {
 		return Report{}, err
 	}
@@ -92,28 +95,48 @@ func (e *Engine) Analyze(ctx context.Context) (Report, error) {
 	}, err
 }
 
-func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
-	parent := parentPageFromContext(ctx)
+type pageLink struct {
+	url    *url.URL
+	typ    htmlparser.LinkType
+	parent *PageReport
+}
 
-	depth := 0
-	if parent != nil {
-		depth = parent.Depth + 1
+func (e *Engine) analyzeLink(ctx context.Context, ln pageLink) error {
+	switch ln.typ {
+	case htmlparser.LinkTypeAnchor:
+		depth := 0
+		if ln.parent != nil {
+			depth = ln.parent.Depth + 1
+		}
+
+		return e.analyzePage(ctx, &PageReport{
+			URL:          ln.url,
+			Depth:        depth,
+			DiscoveredAt: e.clock(),
+			Assets:       map[string]*Asset{},
+			BrokenLinks:  map[string]*BrokenLink{},
+			parent:       ln.parent,
+		})
+	default:
+		return e.analyzeAsset(ctx, &Asset{
+			URL:    ln.url,
+			Type:   linkTypeToAssetType(ln.typ),
+			parent: ln.parent,
+		})
 	}
+}
+
+func (e *Engine) analyzePage(ctx context.Context, page *PageReport) error {
+	pageURL := page.URL
+	parent := page.parent
 
 	analyzedPage, pageIsAnalyzed := e.pages[pageURL.String()]
 	if pageIsAnalyzed {
-		analyzedPage.Depth = min(analyzedPage.Depth, depth)
+		analyzedPage.Depth = min(analyzedPage.Depth, page.Depth)
 		return nil
 	}
 
-	page := PageReport{
-		URL:          pageURL,
-		Depth:        depth,
-		DiscoveredAt: e.clock(),
-		Assets:       map[string]*Asset{},
-		BrokenLinks:  map[string]*BrokenLink{},
-	}
-	e.pages[pageURL.String()] = &page
+	e.pages[pageURL.String()] = page
 
 	resp, err := e.fetch(ctx, pageURL)
 
@@ -149,40 +172,36 @@ func (e *Engine) analyzePage(ctx context.Context, pageURL *url.URL) error {
 	default:
 		return e.processPageResponse(
 			ctx,
-			&page,
+			page,
 			resp,
 		)
 	}
 }
 
-func (e *Engine) analyzeAsset(ctx context.Context, link htmlparser.Link, page *PageReport) error {
-	foundAsset, ok := e.assets[link.URL.String()]
+func (e *Engine) analyzeAsset(ctx context.Context, asset *Asset) error {
+	foundAsset, ok := e.assets[asset.URL.String()]
 	if ok {
-		page.Assets[link.URL.String()] = foundAsset
+		asset.parent.Assets[asset.URL.String()] = foundAsset
 		return nil
 	}
 
-	resp, err := e.fetch(ctx, link.URL)
+	resp, err := e.fetch(ctx, asset.URL)
 
-	asset := &Asset{
-		Type: linkTypeToAssetType(link.Type),
-		URL:  link.URL,
-	}
-	e.assets[link.URL.String()] = asset
+	e.assets[asset.URL.String()] = asset
 
 	switch {
 	case errors.Is(err, context.Canceled):
 		return err
 	case err != nil:
 		asset.Error = err
-		page.Assets[link.URL.String()] = asset
+		asset.parent.Assets[asset.URL.String()] = asset
 
 		return nil
 	default:
 		bodySize, err := responseBodySize(resp)
 		if err != nil {
 			asset.Error = fmt.Errorf("failed to calculate response body size: %w", err)
-			page.Assets[link.URL.String()] = asset
+			asset.parent.Assets[asset.URL.String()] = asset
 
 			return nil
 		}
@@ -191,7 +210,7 @@ func (e *Engine) analyzeAsset(ctx context.Context, link htmlparser.Link, page *P
 
 		asset.StatusCode = resp.StatusCode
 
-		page.Assets[link.URL.String()] = asset
+		asset.parent.Assets[asset.URL.String()] = asset
 
 		return nil
 	}
@@ -255,7 +274,7 @@ func (e *Engine) processPageResponse(
 	page *PageReport,
 	resp *http.Response,
 ) error {
-	parent := parentPageFromContext(ctx)
+	parent := page.parent
 	pageURL := page.URL
 
 	if resp.StatusCode >= 400 {
@@ -330,29 +349,24 @@ func (e *Engine) processDocument(
 
 	links := htmlparser.ExtractLinks(doc, e.rootURL)
 
-	for _, link := range links {
-		if err := weburl.ValidateURL(link.URL); err != nil {
+	for _, ln := range links {
+		if err := weburl.ValidateURL(ln.URL); err != nil {
 			continue
 		}
 
-		weburl.NormalizeURL(link.URL)
+		weburl.NormalizeURL(ln.URL)
 
-		bl, isBroken := e.brokenLinks[link.URL.String()]
+		bl, isBroken := e.brokenLinks[ln.URL.String()]
 		if isBroken {
-			page.BrokenLinks[link.URL.String()] = bl
+			page.BrokenLinks[ln.URL.String()] = bl
 			continue
 		}
 
-		if link.Type != htmlparser.LinkTypeAnchor {
-			err := e.analyzeAsset(ctx, link, page)
-			if err != nil {
-				return err
-			}
-
-			continue
-		}
-
-		err := e.analyzePage(withParentPage(ctx, page), link.URL)
+		err := e.analyzeLink(ctx, pageLink{
+			url:    ln.URL,
+			typ:    ln.Type,
+			parent: page,
+		})
 		if err != nil {
 			return err
 		}
@@ -363,19 +377,4 @@ func (e *Engine) processDocument(
 
 func (e *Engine) isForeignLink(link *url.URL) bool {
 	return e.rootURL.Host != link.Host
-}
-
-type parentPageKey struct{}
-
-func withParentPage(ctx context.Context, page *PageReport) context.Context {
-	return context.WithValue(ctx, parentPageKey{}, page)
-}
-
-func parentPageFromContext(ctx context.Context) *PageReport {
-	page, ok := ctx.Value(parentPageKey{}).(*PageReport)
-	if !ok {
-		return nil
-	}
-
-	return page
 }

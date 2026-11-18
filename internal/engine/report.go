@@ -37,6 +37,7 @@ type PageReport struct {
 	BrokenLinks  map[string]*BrokenLink
 	DiscoveredAt time.Time
 	isIncluded   bool
+	parent       *PageReport
 }
 
 // BrokenLink contains information about broken link
@@ -67,6 +68,7 @@ type Asset struct {
 	StatusCode int
 	SizeBytes  int64
 	Error      error
+	parent     *PageReport
 }
 
 func linkTypeToAssetType(linkType htmlparser.LinkType) AssetType {
