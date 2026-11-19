@@ -216,16 +216,41 @@ func (e *Engine) analyzeAsset(ctx context.Context, asset *Asset) error {
 	}
 }
 
-func (e *Engine) fetch(ctx context.Context, pageURL *url.URL) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", pageURL.String(), nil)
+func (e *Engine) fetch(ctx context.Context, u *url.URL) (*http.Response, error) {
+	req, err := e.prepareRequest(ctx, "GET", "", u)
+	if err != nil {
+		return nil, err
+	}
+
+	return e.doRequest(ctx, req)
+}
+
+func (e *Engine) prepareRequest(
+	ctx context.Context,
+	method string,
+	altMethod string,
+	u *url.URL,
+) (*request, error) {
+	req := &request{
+		method:    method,
+		altMethod: altMethod,
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, method, u.String(), nil)
 	if err != nil {
 		return nil, err
 	}
 
 	if e.userAgent != "" {
-		req.Header.Set("User-Agent", e.userAgent)
+		httpReq.Header.Set("User-Agent", e.userAgent)
 	}
 
+	req.httpReq = httpReq
+
+	return req, nil
+}
+
+func (e *Engine) doRequest(ctx context.Context, req *request) (*http.Response, error) {
 	retriesLeft := e.retries
 
 	for {
@@ -234,9 +259,14 @@ func (e *Engine) fetch(ctx context.Context, pageURL *url.URL) (*http.Response, e
 		t := e.clock()
 		e.lastRequestTime = &t
 
-		resp, err := e.client.Do(req)
+		resp, err := e.client.Do(req.httpReq)
 		if errors.Is(err, context.Canceled) {
 			return nil, err
+		}
+
+		if req.shouldSwitchMethod(resp) {
+			req.switchMethod()
+			continue
 		}
 
 		shouldRetry := retriesLeft > 0 &&
