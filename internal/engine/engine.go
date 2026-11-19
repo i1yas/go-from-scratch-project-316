@@ -210,89 +210,6 @@ func (*Engine) processAssetResponse(asset *Asset, resp *http.Response) {
 	asset.SizeBytes = bodySize
 }
 
-func (e *Engine) fetch(ctx context.Context, u *url.URL) (*http.Response, error) {
-	req, err := e.prepareRequest(ctx, "GET", "", u)
-	if err != nil {
-		return nil, err
-	}
-
-	return e.doRequest(ctx, req)
-}
-
-func (e *Engine) prepareRequest(
-	ctx context.Context,
-	method string,
-	altMethod string,
-	u *url.URL,
-) (*request, error) {
-	req := &request{
-		method:    method,
-		altMethod: altMethod,
-	}
-
-	httpReq, err := http.NewRequestWithContext(ctx, method, u.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	if e.userAgent != "" {
-		httpReq.Header.Set("User-Agent", e.userAgent)
-	}
-
-	req.httpReq = httpReq
-
-	return req, nil
-}
-
-func (e *Engine) doRequest(ctx context.Context, req *request) (*http.Response, error) {
-	retriesLeft := e.retries
-
-	for {
-		e.waitRequestDelay(ctx)
-
-		t := e.clock()
-		e.lastRequestTime = &t
-
-		resp, err := e.client.Do(req.httpReq)
-		if errors.Is(err, context.Canceled) {
-			return nil, err
-		}
-
-		if req.shouldSwitchMethod(resp) {
-			req.switchMethod()
-			continue
-		}
-
-		shouldRetry := retriesLeft > 0 &&
-			(err != nil || isRetriableStatus(resp.StatusCode))
-
-		if shouldRetry {
-			retriesLeft--
-			continue
-		}
-
-		return resp, err
-	}
-}
-
-func (e *Engine) waitRequestDelay(ctx context.Context) {
-	if e.lastRequestTime == nil {
-		return
-	}
-
-	delay := e.delay - e.clock().Sub(*e.lastRequestTime)
-	if delay < 0 {
-		return
-	}
-
-	select {
-	case <-ctx.Done():
-		return
-	case <-time.After(delay):
-		return
-	}
-}
-
 func (e *Engine) processPageResponse(
 	ctx context.Context,
 	page *PageReport,
@@ -422,6 +339,89 @@ func (e *Engine) processDocument(
 	}
 
 	return nil
+}
+
+func (e *Engine) fetch(ctx context.Context, u *url.URL) (*http.Response, error) {
+	req, err := e.prepareRequest(ctx, "GET", "", u)
+	if err != nil {
+		return nil, err
+	}
+
+	return e.doRequest(ctx, req)
+}
+
+func (e *Engine) prepareRequest(
+	ctx context.Context,
+	method string,
+	altMethod string,
+	u *url.URL,
+) (*request, error) {
+	req := &request{
+		method:    method,
+		altMethod: altMethod,
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, method, u.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if e.userAgent != "" {
+		httpReq.Header.Set("User-Agent", e.userAgent)
+	}
+
+	req.httpReq = httpReq
+
+	return req, nil
+}
+
+func (e *Engine) doRequest(ctx context.Context, req *request) (*http.Response, error) {
+	retriesLeft := e.retries
+
+	for {
+		e.waitRequestDelay(ctx)
+
+		t := e.clock()
+		e.lastRequestTime = &t
+
+		resp, err := e.client.Do(req.httpReq)
+		if errors.Is(err, context.Canceled) {
+			return nil, err
+		}
+
+		if req.shouldSwitchMethod(resp) {
+			req.switchMethod()
+			continue
+		}
+
+		shouldRetry := retriesLeft > 0 &&
+			(err != nil || isRetriableStatus(resp.StatusCode))
+
+		if shouldRetry {
+			retriesLeft--
+			continue
+		}
+
+		return resp, err
+	}
+}
+
+func (e *Engine) waitRequestDelay(ctx context.Context) {
+	if e.lastRequestTime == nil {
+		return
+	}
+
+	delay := e.delay - e.clock().Sub(*e.lastRequestTime)
+	if delay < 0 {
+		return
+	}
+
+	select {
+	case <-ctx.Done():
+		return
+	case <-time.After(delay):
+		return
+	}
 }
 
 func (e *Engine) isForeignLink(link *url.URL) bool {
