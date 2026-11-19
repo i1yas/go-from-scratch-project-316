@@ -157,63 +157,6 @@ func (e *Engine) analyzePage(ctx context.Context, page *PageReport) error {
 	return e.processPageResponse(ctx, page, resp)
 }
 
-func (e *Engine) analyzeAsset(ctx context.Context, asset *Asset) error {
-	foundAsset, ok := e.assets[asset.URL.String()]
-	if ok {
-		asset.parent.Assets[asset.URL.String()] = foundAsset
-		return nil
-	}
-
-	e.assets[asset.URL.String()] = asset
-
-	resp, reqErr := e.fetch(ctx, asset.URL)
-
-	errIsRecorded, err := e.processAssetError(asset, resp, reqErr)
-	if err != nil {
-		return err
-	}
-
-	if errIsRecorded {
-		return nil
-	}
-
-	e.processAssetResponse(asset, resp)
-
-	return nil
-}
-
-func (*Engine) processAssetError(asset *Asset, resp *http.Response, reqErr error) (bool, error) {
-	switch {
-	case errors.Is(reqErr, context.Canceled):
-		return false, reqErr
-	case reqErr != nil:
-		asset.Error = reqErr
-		asset.parent.Assets[asset.URL.String()] = asset
-
-		return true, nil
-	case resp.StatusCode >= 400:
-		asset.StatusCode = resp.StatusCode
-		asset.parent.Assets[asset.URL.String()] = asset
-
-		return true, nil
-	default:
-		return false, nil
-	}
-}
-
-func (*Engine) processAssetResponse(asset *Asset, resp *http.Response) {
-	asset.StatusCode = resp.StatusCode
-
-	asset.parent.Assets[asset.URL.String()] = asset
-
-	bodySize, err := responseBodySize(resp)
-	if err != nil {
-		asset.Error = fmt.Errorf("failed to calculate response body size: %w", err)
-	}
-
-	asset.SizeBytes = bodySize
-}
-
 func (e *Engine) processPageError(
 	page *PageReport,
 	resp *http.Response,
@@ -352,6 +295,63 @@ func (e *Engine) processDocument(
 	}
 
 	return nil
+}
+
+func (e *Engine) analyzeAsset(ctx context.Context, asset *Asset) error {
+	foundAsset, ok := e.assets[asset.URL.String()]
+	if ok {
+		asset.parent.Assets[asset.URL.String()] = foundAsset
+		return nil
+	}
+
+	e.assets[asset.URL.String()] = asset
+
+	resp, reqErr := e.fetch(ctx, asset.URL)
+
+	errIsRecorded, err := e.processAssetError(asset, resp, reqErr)
+	if err != nil {
+		return err
+	}
+
+	if errIsRecorded {
+		return nil
+	}
+
+	e.processAssetResponse(asset, resp)
+
+	return nil
+}
+
+func (*Engine) processAssetError(asset *Asset, resp *http.Response, reqErr error) (bool, error) {
+	switch {
+	case errors.Is(reqErr, context.Canceled):
+		return false, reqErr
+	case reqErr != nil:
+		asset.Error = reqErr
+		asset.parent.Assets[asset.URL.String()] = asset
+
+		return true, nil
+	case resp.StatusCode >= 400:
+		asset.StatusCode = resp.StatusCode
+		asset.parent.Assets[asset.URL.String()] = asset
+
+		return true, nil
+	default:
+		return false, nil
+	}
+}
+
+func (*Engine) processAssetResponse(asset *Asset, resp *http.Response) {
+	asset.StatusCode = resp.StatusCode
+
+	asset.parent.Assets[asset.URL.String()] = asset
+
+	bodySize, err := responseBodySize(resp)
+	if err != nil {
+		asset.Error = fmt.Errorf("failed to calculate response body size: %w", err)
+	}
+
+	asset.SizeBytes = bodySize
 }
 
 func (e *Engine) fetch(ctx context.Context, u *url.URL) (*http.Response, error) {
