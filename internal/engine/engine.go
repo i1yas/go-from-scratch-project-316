@@ -145,12 +145,12 @@ func (e *Engine) analyzePage(ctx context.Context, page *PageReport) error {
 		}
 	}()
 
-	ok, err := e.processPageError(page, resp, reqErr)
+	errIsRecorded, err := e.processPageError(page, resp, reqErr)
 	if err != nil {
 		return err
 	}
 
-	if ok {
+	if errIsRecorded {
 		return nil
 	}
 
@@ -168,12 +168,12 @@ func (e *Engine) analyzeAsset(ctx context.Context, asset *Asset) error {
 
 	resp, reqErr := e.fetch(ctx, asset.URL)
 
-	ok, err := e.processAssetError(asset, resp, reqErr)
+	errIsRecorded, err := e.processAssetError(asset, resp, reqErr)
 	if err != nil {
 		return err
 	}
 
-	if ok {
+	if errIsRecorded {
 		return nil
 	}
 
