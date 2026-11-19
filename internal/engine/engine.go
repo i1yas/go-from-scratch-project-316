@@ -145,12 +145,16 @@ func (e *Engine) analyzePage(ctx context.Context, page *PageReport) error {
 		}
 	}()
 
-	return e.processPageResponse(
-		ctx,
-		page,
-		resp,
-		reqErr,
-	)
+	ok, err := e.processPageError(page, resp, reqErr)
+	if err != nil {
+		return err
+	}
+
+	if ok {
+		return nil
+	}
+
+	return e.processPageResponse(ctx, page, resp)
 }
 
 func (e *Engine) analyzeAsset(ctx context.Context, asset *Asset) error {
@@ -210,18 +214,17 @@ func (*Engine) processAssetResponse(asset *Asset, resp *http.Response) {
 	asset.SizeBytes = bodySize
 }
 
-func (e *Engine) processPageResponse(
-	ctx context.Context,
+func (e *Engine) processPageError(
 	page *PageReport,
 	resp *http.Response,
 	reqErr error,
-) error {
+) (bool, error) {
 	parent := page.parent
 	pageURL := page.URL
 
 	switch {
 	case errors.Is(reqErr, context.Canceled):
-		return reqErr
+		return false, reqErr
 	case reqErr != nil:
 		if parent == nil {
 			page.Error = reqErr
@@ -231,7 +234,7 @@ func (e *Engine) processPageResponse(
 			page.Assets = nil
 			page.BrokenLinks = nil
 
-			return nil
+			return true, nil
 		}
 
 		bl := BrokenLink{
@@ -241,14 +244,14 @@ func (e *Engine) processPageResponse(
 		e.brokenLinks[pageURL.String()] = &bl
 		parent.BrokenLinks[pageURL.String()] = &bl
 
-		return nil
+		return true, nil
 	case resp.StatusCode >= 400:
 		if parent == nil {
 			page.HTTPStatus = resp.StatusCode
 			page.Status = statusText(resp.Status)
 			page.isIncluded = true
 
-			return nil
+			return true, nil
 		}
 
 		bl := BrokenLink{
@@ -258,38 +261,48 @@ func (e *Engine) processPageResponse(
 		e.brokenLinks[pageURL.String()] = &bl
 		parent.BrokenLinks[pageURL.String()] = &bl
 
-		return nil
+		return true, nil
 
 	default:
-		if e.isForeignLink(pageURL) {
-			return nil
-		}
+		return false, nil
+	}
+}
 
-		page.HTTPStatus = resp.StatusCode
-		page.Status = statusText(resp.Status)
+func (e *Engine) processPageResponse(
+	ctx context.Context,
+	page *PageReport,
+	resp *http.Response,
+) error {
+	pageURL := page.URL
 
-		respContentType := resp.Header.Get("Content-Type")
-
-		docType, isDocument := documentTypeFromContentType(respContentType)
-		if !isDocument {
-			page.isIncluded = true
-			return nil
-		}
-
-		err := e.processDocument(ctx, resp.Body, docType, page)
-		if errors.Is(err, context.Canceled) {
-			page.isIncluded = true
-			return err
-		}
-
-		if err != nil {
-			return err
-		}
-
-		page.isIncluded = true
-
+	if e.isForeignLink(pageURL) {
 		return nil
 	}
+
+	page.HTTPStatus = resp.StatusCode
+	page.Status = statusText(resp.Status)
+
+	respContentType := resp.Header.Get("Content-Type")
+
+	docType, isDocument := documentTypeFromContentType(respContentType)
+	if !isDocument {
+		page.isIncluded = true
+		return nil
+	}
+
+	err := e.processDocument(ctx, resp.Body, docType, page)
+	if errors.Is(err, context.Canceled) {
+		page.isIncluded = true
+		return err
+	}
+
+	if err != nil {
+		return err
+	}
+
+	page.isIncluded = true
+
+	return nil
 }
 
 func (e *Engine) processDocument(
