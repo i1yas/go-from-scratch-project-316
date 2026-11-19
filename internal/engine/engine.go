@@ -128,7 +128,6 @@ func (e *Engine) analyzeLink(ctx context.Context, ln pageLink) error {
 
 func (e *Engine) analyzePage(ctx context.Context, page *PageReport) error {
 	pageURL := page.URL
-	parent := page.parent
 
 	analyzedPage, pageIsAnalyzed := e.pages[pageURL.String()]
 	if pageIsAnalyzed {
@@ -138,7 +137,7 @@ func (e *Engine) analyzePage(ctx context.Context, page *PageReport) error {
 
 	e.pages[pageURL.String()] = page
 
-	resp, err := e.fetch(ctx, pageURL)
+	resp, reqErr := e.fetch(ctx, pageURL)
 
 	defer func() {
 		if resp != nil {
@@ -146,36 +145,12 @@ func (e *Engine) analyzePage(ctx context.Context, page *PageReport) error {
 		}
 	}()
 
-	switch {
-	case errors.Is(err, context.Canceled):
-		return err
-	case err != nil:
-		if parent == nil {
-			page.Error = err
-			page.Status = "error"
-			page.isIncluded = true
-
-			page.Assets = nil
-			page.BrokenLinks = nil
-
-			return nil
-		}
-
-		bl := BrokenLink{
-			URL:   page.URL,
-			Error: err,
-		}
-		e.brokenLinks[pageURL.String()] = &bl
-		parent.BrokenLinks[pageURL.String()] = &bl
-
-		return nil
-	default:
-		return e.processPageResponse(
-			ctx,
-			page,
-			resp,
-		)
-	}
+	return e.processPageResponse(
+		ctx,
+		page,
+		resp,
+		reqErr,
+	)
 }
 
 func (e *Engine) analyzeAsset(ctx context.Context, asset *Asset) error {
@@ -185,35 +160,54 @@ func (e *Engine) analyzeAsset(ctx context.Context, asset *Asset) error {
 		return nil
 	}
 
-	resp, err := e.fetch(ctx, asset.URL)
-
 	e.assets[asset.URL.String()] = asset
 
-	switch {
-	case errors.Is(err, context.Canceled):
+	resp, reqErr := e.fetch(ctx, asset.URL)
+
+	ok, err := e.processAssetError(asset, resp, reqErr)
+	if err != nil {
 		return err
-	case err != nil:
-		asset.Error = err
-		asset.parent.Assets[asset.URL.String()] = asset
+	}
 
-		return nil
-	default:
-		bodySize, err := responseBodySize(resp)
-		if err != nil {
-			asset.Error = fmt.Errorf("failed to calculate response body size: %w", err)
-			asset.parent.Assets[asset.URL.String()] = asset
-
-			return nil
-		}
-
-		asset.SizeBytes = bodySize
-
-		asset.StatusCode = resp.StatusCode
-
-		asset.parent.Assets[asset.URL.String()] = asset
-
+	if ok {
 		return nil
 	}
+
+	e.processAssetResponse(asset, resp)
+
+	return nil
+}
+
+func (*Engine) processAssetError(asset *Asset, resp *http.Response, reqErr error) (bool, error) {
+	switch {
+	case errors.Is(reqErr, context.Canceled):
+		return false, reqErr
+	case reqErr != nil:
+		asset.Error = reqErr
+		asset.parent.Assets[asset.URL.String()] = asset
+
+		return true, nil
+	case resp.StatusCode >= 400:
+		asset.StatusCode = resp.StatusCode
+		asset.parent.Assets[asset.URL.String()] = asset
+
+		return true, nil
+	default:
+		return false, nil
+	}
+}
+
+func (*Engine) processAssetResponse(asset *Asset, resp *http.Response) {
+	asset.StatusCode = resp.StatusCode
+
+	asset.parent.Assets[asset.URL.String()] = asset
+
+	bodySize, err := responseBodySize(resp)
+	if err != nil {
+		asset.Error = fmt.Errorf("failed to calculate response body size: %w", err)
+	}
+
+	asset.SizeBytes = bodySize
 }
 
 func (e *Engine) fetch(ctx context.Context, u *url.URL) (*http.Response, error) {
@@ -303,11 +297,35 @@ func (e *Engine) processPageResponse(
 	ctx context.Context,
 	page *PageReport,
 	resp *http.Response,
+	reqErr error,
 ) error {
 	parent := page.parent
 	pageURL := page.URL
 
-	if resp.StatusCode >= 400 {
+	switch {
+	case errors.Is(reqErr, context.Canceled):
+		return reqErr
+	case reqErr != nil:
+		if parent == nil {
+			page.Error = reqErr
+			page.Status = "error"
+			page.isIncluded = true
+
+			page.Assets = nil
+			page.BrokenLinks = nil
+
+			return nil
+		}
+
+		bl := BrokenLink{
+			URL:   page.URL,
+			Error: reqErr,
+		}
+		e.brokenLinks[pageURL.String()] = &bl
+		parent.BrokenLinks[pageURL.String()] = &bl
+
+		return nil
+	case resp.StatusCode >= 400:
 		if parent == nil {
 			page.HTTPStatus = resp.StatusCode
 			page.Status = statusText(resp.Status)
@@ -324,36 +342,37 @@ func (e *Engine) processPageResponse(
 		parent.BrokenLinks[pageURL.String()] = &bl
 
 		return nil
-	}
 
-	if e.isForeignLink(pageURL) {
+	default:
+		if e.isForeignLink(pageURL) {
+			return nil
+		}
+
+		page.HTTPStatus = resp.StatusCode
+		page.Status = statusText(resp.Status)
+
+		respContentType := resp.Header.Get("Content-Type")
+
+		docType, isDocument := documentTypeFromContentType(respContentType)
+		if !isDocument {
+			page.isIncluded = true
+			return nil
+		}
+
+		err := e.processDocument(ctx, resp.Body, docType, page)
+		if errors.Is(err, context.Canceled) {
+			page.isIncluded = true
+			return err
+		}
+
+		if err != nil {
+			return err
+		}
+
+		page.isIncluded = true
+
 		return nil
 	}
-
-	page.HTTPStatus = resp.StatusCode
-	page.Status = statusText(resp.Status)
-
-	respContentType := resp.Header.Get("Content-Type")
-
-	docType, isDocument := documentTypeFromContentType(respContentType)
-	if !isDocument {
-		page.isIncluded = true
-		return nil
-	}
-
-	err := e.processDocument(ctx, resp.Body, docType, page)
-	if errors.Is(err, context.Canceled) {
-		page.isIncluded = true
-		return err
-	}
-
-	if err != nil {
-		return err
-	}
-
-	page.isIncluded = true
-
-	return nil
 }
 
 func (e *Engine) processDocument(
