@@ -72,10 +72,10 @@ func SetupTestServer(
 	})
 
 	plainServer := httptest.NewServer(handler)
-	t.Cleanup(plainServer.Close)
+	cleanupServer(t, plainServer, time.Second*5)
 
 	secureServer := httptest.NewTLSServer(handler)
-	t.Cleanup(secureServer.Close)
+	cleanupServer(t, secureServer, time.Second*5)
 
 	var d net.Dialer
 
@@ -97,6 +97,29 @@ func SetupTestServer(
 	server.Client = client
 
 	return server
+}
+
+func cleanupServer(t *testing.T, srv *httptest.Server, timeout time.Duration) {
+	t.Helper()
+
+	t.Cleanup(func() {
+		done := make(chan struct{})
+
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		go func() {
+			srv.Close()
+			close(done)
+		}()
+
+		select {
+		case <-done:
+			return
+		case <-cleanupCtx.Done():
+			t.Fatal("waited for server close too long")
+		}
+	})
 }
 
 // TotalCallsCount returns total calls count to server
