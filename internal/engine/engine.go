@@ -156,7 +156,7 @@ func (e *Engine) analyzePage(ctx context.Context, page *PageReport) error {
 	}
 
 	if resp != nil && !responseContainsDocument(resp) {
-		return e.processPageResponse(ctx, page, resp)
+		return nil
 	}
 
 	// TODO: process page response here if GET request was made
