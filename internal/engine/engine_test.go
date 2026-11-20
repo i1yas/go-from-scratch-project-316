@@ -87,6 +87,15 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 	require.NoError(t, err)
 
 	requireReportMatches(t, want, got)
+
+	assert.Equal(t, 0, server.CallsCountToRoute("HEAD", "/"))
+	assert.Equal(t, 1, server.CallsCountToRoute("GET", "/"))
+
+	assert.Equal(t, 1, server.CallsCountToRoute("HEAD", "/working"))
+	assert.Equal(t, 1, server.CallsCountToRoute("GET", "/working"))
+
+	assert.Equal(t, 1, server.CallsCountToRoute("HEAD", "/broken"))
+	assert.Equal(t, 0, server.CallsCountToRoute("GET", "/broken"))
 }
 
 func TestEngineAnalyze_RootURLNormalized(t *testing.T) {
@@ -370,7 +379,7 @@ func TestEngineAnalyze_SwitchFromHeadToGet(t *testing.T) {
 
 	requireReportMatches(t, want, got)
 
-	assert.Equal(t, 1, server.CallsCountToRoute("HEAD", "/"))
+	assert.Equal(t, 0, server.CallsCountToRoute("HEAD", "/"))
 	assert.Greater(t, server.CallsCountToRoute("GET", "/"), 0)
 
 	assert.Equal(t, 1, server.CallsCountToRoute("HEAD", "/image.png"))
@@ -449,7 +458,7 @@ func TestEngineAnalyze_PagesFetchedOnce(t *testing.T) {
 
 	requireReportMatches(t, want, got)
 
-	require.Equal(t, 1, server.CallsCountToRoute("HEAD", "/"))
+	require.Equal(t, 0, server.CallsCountToRoute("HEAD", "/"))
 	require.Equal(t, 1, server.CallsCountToRoute("GET", "/"))
 
 	require.Equal(t, 1, server.CallsCountToRoute("HEAD", "/working"))
@@ -817,7 +826,7 @@ func TestEngineAnalyze_RetriesOnRootURL(t *testing.T) {
 			name:        "enough retries, success",
 			serverFails: 2,
 			retries:     3,
-			wantCalls:   3 + 1,
+			wantCalls:   3,
 			wantStatus:  200,
 			onServerFail: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(500)
@@ -827,7 +836,7 @@ func TestEngineAnalyze_RetriesOnRootURL(t *testing.T) {
 			name:        "just enough retries, success",
 			serverFails: 3,
 			retries:     3,
-			wantCalls:   4 + 1,
+			wantCalls:   4,
 			wantStatus:  200,
 			onServerFail: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(500)

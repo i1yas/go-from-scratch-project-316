@@ -137,20 +137,22 @@ func (e *Engine) analyzePage(ctx context.Context, page *PageReport) error {
 
 	e.pages[pageURL.String()] = page
 
-	resp, reqErr := e.checkURL(ctx, pageURL)
+	if page.parent != nil {
+		resp, reqErr := e.checkURL(ctx, pageURL)
 
-	errRecorded, err := e.processPageError(page, resp, reqErr)
-	if err != nil {
-		return err
-	}
+		errRecorded, err := e.processPageError(page, resp, reqErr)
+		if err != nil {
+			return err
+		}
 
-	if errRecorded {
-		return nil
+		if errRecorded {
+			return nil
+		}
 	}
 
 	// TODO: process page response here if GET request was made
 
-	resp, reqErr = e.loadURL(ctx, pageURL)
+	resp, reqErr := e.loadURL(ctx, pageURL)
 
 	defer func() {
 		if resp != nil {
