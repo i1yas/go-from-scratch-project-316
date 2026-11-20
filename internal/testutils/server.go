@@ -20,6 +20,7 @@ import (
 type TestServerRoute struct {
 	Status            int
 	Body              []byte
+	ContentType       string
 	ContentLength     int64
 	OmitContentLength bool
 	Fn                func(w http.ResponseWriter, r *http.Request)
@@ -217,7 +218,12 @@ func handleTestRequest(
 		w.Header().Set("Content-Length", strconv.FormatInt(respConf.ContentLength, 10))
 	}
 
+	if respConf.ContentType != "" {
+		w.Header().Set("Content-Type", respConf.ContentType)
+	}
+
 	w.WriteHeader(respConf.Status)
+
 	_, err := w.Write(respConf.Body)
 	require.NoError(t, err)
 
