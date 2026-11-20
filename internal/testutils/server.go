@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -57,7 +58,7 @@ func SetupTestServer(
 			server.mu.Lock()
 			server.calls = append(server.calls, call{
 				method: r.Method,
-				uri:    r.RequestURI,
+				uri:    r.Host + r.RequestURI,
 				time:   reqT,
 			})
 			server.mu.Unlock()
@@ -140,7 +141,7 @@ func (ts *TestServer) CallsCountToURI(uri string) int {
 	count := 0
 
 	for _, c := range ts.calls {
-		if c.uri == uri {
+		if matchCallByURI(c, uri) {
 			count++
 		}
 	}
@@ -157,7 +158,7 @@ func (ts *TestServer) CallsCountToRoute(method, uri string) int {
 	count := 0
 
 	for _, c := range ts.calls {
-		if c.method == method && c.uri == uri {
+		if c.method == method && matchCallByURI(c, uri) {
 			count++
 		}
 	}
@@ -247,4 +248,10 @@ func HijackAndCloseHandler(t *testing.T) http.HandlerFunc {
 
 		require.NoError(t, conn.Close())
 	}
+}
+
+func matchCallByURI(c call, uri string) bool {
+	head, ok := strings.CutSuffix(c.uri, uri)
+
+	return ok && !strings.Contains(head, "/")
 }
