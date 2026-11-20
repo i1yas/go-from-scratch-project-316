@@ -109,6 +109,12 @@ func (e *Engine) analyzeLink(ctx context.Context, ln pageLink) error {
 			depth = ln.parent.Depth + 1
 		}
 
+		analyzedPage, pageIsAnalyzed := e.pages[ln.url.String()]
+		if pageIsAnalyzed {
+			analyzedPage.Depth = min(analyzedPage.Depth, depth)
+			return nil
+		}
+
 		return e.analyzePage(ctx, &PageReport{
 			URL:          ln.url,
 			Depth:        depth,
@@ -128,12 +134,6 @@ func (e *Engine) analyzeLink(ctx context.Context, ln pageLink) error {
 
 func (e *Engine) analyzePage(ctx context.Context, page *PageReport) error {
 	pageURL := page.URL
-
-	analyzedPage, pageIsAnalyzed := e.pages[pageURL.String()]
-	if pageIsAnalyzed {
-		analyzedPage.Depth = min(analyzedPage.Depth, page.Depth)
-		return nil
-	}
 
 	e.pages[pageURL.String()] = page
 
