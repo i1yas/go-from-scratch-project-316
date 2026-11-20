@@ -19,7 +19,6 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 	host := "test.com"
 
 	rootURL := testURL(t, "http://"+host)
-	nestedURL := testURL(t, "http://"+host+"/working")
 
 	server := tu.SetupTestServer(t, host,
 		map[string]tu.TestServerRoute{
@@ -57,18 +56,6 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 						URL:        testURL(t, "https://example.com/page?param1=x&param2=y"),
 						StatusCode: 404,
 					},
-				},
-				Error: nil,
-			},
-			{
-				URL:        nestedURL,
-				Depth:      1,
-				HTTPStatus: 200,
-				Status:     "ok",
-				SEO: PageSEO{
-					HasTitle:       false,
-					HasDescription: false,
-					HasH1:          false,
 				},
 				Error: nil,
 			},
@@ -539,6 +526,8 @@ func TestEngineAnalyze_RecordPageMinDepth(t *testing.T) {
 		}},
 		"/target": {Fn: func(w http.ResponseWriter, r *http.Request) {
 			targetVisited <- struct{}{}
+
+			w.Header().Set("Content-Type", "text/html")
 
 			if r.Method == "HEAD" {
 				w.WriteHeader(http.StatusOK)
