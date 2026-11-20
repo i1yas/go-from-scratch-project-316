@@ -433,7 +433,12 @@ func TestEngineAnalyze_RecordPageMinDepth(t *testing.T) {
 		"/":            {Status: 200, Body: rootPageContent},
 		"/nested":      {Status: 200, Body: nestedPageContent},
 		"/nested/deep": {Status: 200, Body: pageWithTargetLink},
-		"/nested-block": {Fn: func(w http.ResponseWriter, _ *http.Request) {
+		"/nested-block": {Fn: func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == "HEAD" {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+
 			<-targetVisited
 
 			time.Sleep(time.Millisecond * 100)
@@ -443,7 +448,12 @@ func TestEngineAnalyze_RecordPageMinDepth(t *testing.T) {
 			_, err := w.Write(pageWithTargetLink)
 			require.NoError(t, err)
 		}},
-		"/target": {Fn: func(w http.ResponseWriter, _ *http.Request) {
+		"/target": {Fn: func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == "HEAD" {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+
 			targetVisited <- struct{}{}
 
 			w.WriteHeader(http.StatusOK)
