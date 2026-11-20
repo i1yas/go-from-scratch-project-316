@@ -150,6 +150,10 @@ func (e *Engine) analyzePage(ctx context.Context, page *PageReport) error {
 		}
 	}
 
+	if e.isForeignLink(page.URL) {
+		return nil
+	}
+
 	// TODO: process page response here if GET request was made
 
 	resp, reqErr := e.loadURL(ctx, pageURL)
@@ -231,12 +235,6 @@ func (e *Engine) processPageResponse(
 	page *PageReport,
 	resp *http.Response,
 ) error {
-	pageURL := page.URL
-
-	if e.isForeignLink(pageURL) {
-		return nil
-	}
-
 	page.HTTPStatus = resp.StatusCode
 	page.Status = statusText(resp.Status)
 

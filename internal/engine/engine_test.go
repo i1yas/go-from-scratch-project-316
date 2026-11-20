@@ -96,6 +96,9 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 
 	assert.Equal(t, 1, server.CallsCountToRoute("HEAD", "/broken"))
 	assert.Equal(t, 0, server.CallsCountToRoute("GET", "/broken"))
+
+	assert.Equal(t, 1, server.CallsCountToRoute("HEAD", "example.com/home"))
+	assert.Equal(t, 0, server.CallsCountToRoute("GET", "example.com/home"))
 }
 
 func TestEngineAnalyze_RootURLNormalized(t *testing.T) {
