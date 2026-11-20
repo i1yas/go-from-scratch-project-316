@@ -137,16 +137,17 @@ func (e *Engine) analyzePage(ctx context.Context, page *PageReport) error {
 
 	e.pages[pageURL.String()] = page
 
+	var (
+		resp   *http.Response
+		reqErr error
+	)
+
 	if page.parent != nil {
-		resp, reqErr := e.checkURL(ctx, pageURL)
+		resp, reqErr = e.checkURL(ctx, pageURL)
 
 		errRecorded, err := e.processPageError(page, resp, reqErr)
-		if err != nil {
+		if err != nil || errRecorded {
 			return err
-		}
-
-		if errRecorded {
-			return nil
 		}
 	}
 
@@ -154,9 +155,13 @@ func (e *Engine) analyzePage(ctx context.Context, page *PageReport) error {
 		return nil
 	}
 
+	if resp != nil && !responseContainsDocument(resp) {
+		return e.processPageResponse(ctx, page, resp)
+	}
+
 	// TODO: process page response here if GET request was made
 
-	resp, reqErr := e.loadURL(ctx, pageURL)
+	resp, reqErr = e.loadURL(ctx, pageURL)
 
 	defer func() {
 		if resp != nil {
@@ -165,12 +170,8 @@ func (e *Engine) analyzePage(ctx context.Context, page *PageReport) error {
 	}()
 
 	errIsRecorded, err := e.processPageError(page, resp, reqErr)
-	if err != nil {
+	if err != nil || errIsRecorded {
 		return err
-	}
-
-	if errIsRecorded {
-		return nil
 	}
 
 	return e.processPageResponse(ctx, page, resp)
@@ -472,4 +473,9 @@ func (e *Engine) waitRequestDelay(ctx context.Context) {
 
 func (e *Engine) isForeignLink(link *url.URL) bool {
 	return e.rootURL.Host != link.Host
+}
+
+func responseContainsDocument(resp *http.Response) bool {
+	_, ok := documentTypeFromContentType(resp.Header.Get("Content-Type"))
+	return ok
 }
