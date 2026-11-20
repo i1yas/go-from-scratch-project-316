@@ -378,8 +378,12 @@ func TestEngineAnalyze_PagesFetchedOnce(t *testing.T) {
 
 	requireReportMatches(t, want, got)
 
-	require.Equal(t, 1, server.CallsCountToURI("/"))
-	require.Equal(t, 1, server.CallsCountToURI("/working"))
+	require.Equal(t, 1, server.CallsCountToRoute("HEAD", "/"))
+	require.Equal(t, 1, server.CallsCountToRoute("GET", "/"))
+
+	require.Equal(t, 1, server.CallsCountToRoute("HEAD", "/working"))
+	require.Equal(t, 1, server.CallsCountToRoute("GET", "/working"))
+
 	require.Equal(t, 1, server.CallsCountToURI("/broken"))
 }
 
