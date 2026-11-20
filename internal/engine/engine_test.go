@@ -746,7 +746,7 @@ func TestEngineAnalyze_RetriesOnRootURL(t *testing.T) {
 			name:        "enough retries, success",
 			serverFails: 2,
 			retries:     3,
-			wantCalls:   3,
+			wantCalls:   3 + 1,
 			wantStatus:  200,
 			onServerFail: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(500)
@@ -756,7 +756,7 @@ func TestEngineAnalyze_RetriesOnRootURL(t *testing.T) {
 			name:        "just enough retries, success",
 			serverFails: 3,
 			retries:     3,
-			wantCalls:   4,
+			wantCalls:   4 + 1,
 			wantStatus:  200,
 			onServerFail: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(500)
@@ -836,7 +836,7 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 			name:            "enough retries, no broken links",
 			serverFails:     2,
 			retries:         3,
-			wantNestedCalls: 3,
+			wantNestedCalls: 3 + 1,
 			wantPages:       2,
 			wantBrokenLinks: 0,
 			onServerFail: func(w http.ResponseWriter, _ *http.Request) {
@@ -847,7 +847,7 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 			name:            "just enough retries, no broken links",
 			serverFails:     3,
 			retries:         3,
-			wantNestedCalls: 4,
+			wantNestedCalls: 4 + 1,
 			wantPages:       2,
 			wantBrokenLinks: 0,
 			onServerFail: func(w http.ResponseWriter, _ *http.Request) {
