@@ -307,6 +307,76 @@ func TestEningeAnalyze_RootURLFailed(t *testing.T) {
 	requireReportMatches(t, want, got)
 }
 
+func TestEngineAnalyze_SwitchFromHeadToGet(t *testing.T) {
+	pageContent := []byte(`
+	<body>
+		<img src="/image.png">
+	</body>
+	`)
+
+	server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerRoute{
+		"/": {Fn: func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == "HEAD" {
+				w.WriteHeader(http.StatusMethodNotAllowed)
+				return
+			}
+
+			_, err := w.Write(pageContent)
+			require.NoError(t, err)
+		}},
+		"/image.png": {Fn: func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == "HEAD" {
+				w.WriteHeader(http.StatusMethodNotAllowed)
+				return
+			}
+
+			w.WriteHeader(http.StatusOK)
+
+			_, err := w.Write(make([]byte, 121))
+			require.NoError(t, err)
+		}},
+	}, nil)
+
+	e, err := New(Options{
+		URL:        "http://test.com",
+		Depth:      1,
+		HTTPClient: server.Client,
+	})
+	require.NoError(t, err)
+
+	got, err := e.Analyze(t.Context())
+	require.NoError(t, err)
+
+	want := Report{
+		RootURL: testURL(t, "http://test.com"),
+		Depth:   1,
+		Pages: []PageReport{
+			{
+				URL:        testURL(t, "http://test.com"),
+				Depth:      0,
+				HTTPStatus: 200,
+				Status:     "ok",
+				Assets: map[string]*Asset{
+					"http://test.com/image.png": {
+						Type:       AssetTypeImage,
+						URL:        testURL(t, "http://test.com/image.png"),
+						StatusCode: 200,
+						SizeBytes:  121,
+					},
+				},
+			},
+		},
+	}
+
+	requireReportMatches(t, want, got)
+
+	assert.Equal(t, 1, server.CallsCountToRoute("HEAD", "/"))
+	assert.Greater(t, server.CallsCountToRoute("GET", "/"), 0)
+
+	assert.Equal(t, 1, server.CallsCountToRoute("HEAD", "/image.png"))
+	assert.Greater(t, server.CallsCountToRoute("GET", "/image.png"), 0)
+}
+
 func TestEngineAnalyze_PagesFetchedOnce(t *testing.T) {
 	pageContent := loadFixture(t, "well-formed-page.html")
 	host := "test.com"
