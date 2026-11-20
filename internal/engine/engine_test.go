@@ -514,7 +514,7 @@ func TestEngineAnalyze_RecordPageMinDepth(t *testing.T) {
 	nestedPageContent := generatePageWithLinks([]string{"/nested/deep"})
 	pageWithTargetLink := generatePageWithLinks([]string{"/target"})
 
-	targetVisited := make(chan struct{}, 1)
+	targetVisited := make(chan struct{}, 10)
 
 	server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerRoute{
 		"/":            {Status: 200, Body: rootPageContent, ContentType: "text/html"},
