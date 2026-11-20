@@ -33,8 +33,8 @@ func TestAnalyze_NormalPage(t *testing.T) {
 
 	server := tu.SetupTestServer(t, testHost,
 		map[string]tu.TestServerRoute{
-			"/":                 {Status: 200, Body: rootPageContent},
-			"/link":             {Status: 200, Body: nestedPageContent},
+			"/":                 {Status: 200, Body: rootPageContent, ContentType: "text/html"},
+			"/link":             {Status: 200, Body: nestedPageContent, ContentType: "text/html"},
 			"/broken":           {Status: 500},
 			"/static/logo.png":  {Status: 200, Body: make([]byte, 12345)},
 			"/static/style.css": {Status: 200, Body: make([]byte, 456)},
@@ -64,7 +64,7 @@ func TestAnalyze_PageWithoutLinks(t *testing.T) {
 
 	server := tu.SetupTestServer(t, testHost,
 		map[string]tu.TestServerRoute{
-			"/": {Status: 200, Body: pageContent},
+			"/": {Status: 200, Body: pageContent, ContentType: "text/html"},
 		},
 		nil,
 	)
@@ -86,7 +86,7 @@ func TestAnalyze_Indent(t *testing.T) {
 
 	server := tu.SetupTestServer(t, testHost,
 		map[string]tu.TestServerRoute{
-			"/": {Status: 200, Body: pageContent},
+			"/": {Status: 200, Body: pageContent, ContentType: "text/html"},
 		},
 		nil,
 	)

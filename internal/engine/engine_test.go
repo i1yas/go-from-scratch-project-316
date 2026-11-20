@@ -23,12 +23,12 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 
 	server := tu.SetupTestServer(t, host,
 		map[string]tu.TestServerRoute{
-			"/":        {Status: 200, Body: pageContent},
+			"/":        {Status: 200, Body: pageContent, ContentType: "text/html"},
 			"/working": {Status: 200},
 			"/broken":  {Status: 500},
 		},
 		map[string]tu.TestServerRoute{
-			"/home": {Status: 200, Body: pageContent},
+			"/home": {Status: 200, Body: pageContent, ContentType: "text/html"},
 		},
 	)
 
@@ -92,7 +92,7 @@ func TestEngineAnalyze_WellFormedPage(t *testing.T) {
 	assert.Equal(t, 1, server.CallsCountToRoute("GET", "/"))
 
 	assert.Equal(t, 1, server.CallsCountToRoute("HEAD", "/working"))
-	assert.Equal(t, 1, server.CallsCountToRoute("GET", "/working"))
+	assert.Equal(t, 0, server.CallsCountToRoute("GET", "/working"))
 
 	assert.Equal(t, 1, server.CallsCountToRoute("HEAD", "/broken"))
 	assert.Equal(t, 0, server.CallsCountToRoute("GET", "/broken"))
@@ -170,7 +170,7 @@ func TestEngineAnalyze_RssFeed(t *testing.T) {
 	rssPageContent := loadFixture(t, "rss-feed.xml")
 
 	server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerRoute{
-		"/": {Status: 200, Body: generatePageWithLinks([]string{"/rss"})},
+		"/": {Status: 200, Body: generatePageWithLinks([]string{"/rss"}), ContentType: "text/html"},
 		"/rss": {Fn: func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "application/rss+xml")
 			w.WriteHeader(http.StatusOK)
@@ -517,10 +517,12 @@ func TestEngineAnalyze_RecordPageMinDepth(t *testing.T) {
 	targetVisited := make(chan struct{}, 1)
 
 	server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerRoute{
-		"/":            {Status: 200, Body: rootPageContent},
-		"/nested":      {Status: 200, Body: nestedPageContent},
-		"/nested/deep": {Status: 200, Body: pageWithTargetLink},
+		"/":            {Status: 200, Body: rootPageContent, ContentType: "text/html"},
+		"/nested":      {Status: 200, Body: nestedPageContent, ContentType: "text/html"},
+		"/nested/deep": {Status: 200, Body: pageWithTargetLink, ContentType: "text/html"},
 		"/nested-block": {Fn: func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/html")
+
 			if r.Method == "HEAD" {
 				w.WriteHeader(http.StatusOK)
 				return
@@ -536,12 +538,12 @@ func TestEngineAnalyze_RecordPageMinDepth(t *testing.T) {
 			require.NoError(t, err)
 		}},
 		"/target": {Fn: func(w http.ResponseWriter, r *http.Request) {
+			targetVisited <- struct{}{}
+
 			if r.Method == "HEAD" {
 				w.WriteHeader(http.StatusOK)
 				return
 			}
-
-			targetVisited <- struct{}{}
 
 			w.WriteHeader(http.StatusOK)
 		}},
@@ -980,7 +982,7 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 			serverFailsLeft := tc.serverFails
 
 			server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerRoute{
-				"/": {Status: 200, Body: pageContent},
+				"/": {Status: 200, Body: pageContent, ContentType: "text/html"},
 				"/link": {Fn: func(w http.ResponseWriter, r *http.Request) {
 					if serverFailsLeft > 0 {
 						serverFailsLeft--
@@ -989,6 +991,8 @@ func TestEngineAnalyze_RetriesOnNestedURL(t *testing.T) {
 
 						return
 					}
+
+					w.Header().Set("Content-Type", "text/html")
 
 					w.WriteHeader(200)
 				}},
@@ -1029,7 +1033,7 @@ func TestEngineAnalyze_Assets(t *testing.T) {
 	pageContent := loadFixture(t, "page-with-assets.html")
 
 	server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerRoute{
-		"/":            {Status: 200, Body: pageContent},
+		"/":            {Status: 200, Body: pageContent, ContentType: "text/html"},
 		"/style.css":   {Status: 200},
 		"/script.js":   {Fn: tu.HijackAndCloseHandler(t)},
 		"/image-1.png": {Status: 200, Body: make([]byte, 121), OmitContentLength: true},
