@@ -24,12 +24,17 @@ type TestServerRoute struct {
 	Fn                func(w http.ResponseWriter, r *http.Request)
 }
 
+type call struct {
+	method string
+	uri    string
+	time   time.Time
+}
+
 // TestServer is test server that uses [httptest.Server] under the hood and collects metrics
 type TestServer struct {
-	Client   *http.Client
-	calls    map[string]int
-	timeline []time.Time
-	mu       sync.Mutex
+	Client *http.Client
+	calls  []call
+	mu     sync.Mutex
 }
 
 // SetupTestServer creates and sets up [TestServer]
@@ -42,9 +47,7 @@ func SetupTestServer(
 	t.Helper()
 
 	server := &TestServer{
-		calls:    map[string]int{},
-		timeline: []time.Time{},
-		mu:       sync.Mutex{},
+		mu: sync.Mutex{},
 	}
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -52,8 +55,11 @@ func SetupTestServer(
 
 		defer func() {
 			server.mu.Lock()
-			server.calls[r.URL.String()]++
-			server.timeline = append(server.timeline, reqT)
+			server.calls = append(server.calls, call{
+				method: r.Method,
+				uri:    r.RequestURI,
+				time:   reqT,
+			})
 			server.mu.Unlock()
 		}()
 
@@ -99,16 +105,41 @@ func (ts *TestServer) TotalCallsCount() int {
 
 	ts.mu.Lock()
 
-	return len(ts.timeline)
+	return len(ts.calls)
 }
 
-// CallsCountTo returns calls count to specified route
+// CallsCountTo returns calls count to specified uri (combine all routes)
 func (ts *TestServer) CallsCountTo(uri string) int {
 	defer ts.mu.Unlock()
 
 	ts.mu.Lock()
 
-	return ts.calls[uri]
+	count := 0
+
+	for _, c := range ts.calls {
+		if c.uri == uri {
+			count++
+		}
+	}
+
+	return count
+}
+
+// CallsCountToRoute returns calls count to specified route (method + uri)
+func (ts *TestServer) CallsCountToRoute(method, uri string) int {
+	defer ts.mu.Unlock()
+
+	ts.mu.Lock()
+
+	count := 0
+
+	for _, c := range ts.calls {
+		if c.method == method && c.uri == uri {
+			count++
+		}
+	}
+
+	return count
 }
 
 // MinDelayBetweenRequests calculates min delay between requests
@@ -119,21 +150,21 @@ func (ts *TestServer) MinDelayBetweenRequests() time.Duration {
 
 	minDelay := time.Duration(math.MaxInt64)
 
-	if len(ts.timeline) == 0 {
+	if len(ts.calls) == 0 {
 		return minDelay
 	}
 
-	lastT := ts.timeline[0]
+	lastT := ts.calls[0].time
 
-	for i := 1; i < len(ts.timeline); i++ {
-		t := ts.timeline[i]
+	for i := 1; i < len(ts.calls); i++ {
+		call := ts.calls[i]
 
-		delay := t.Sub(lastT)
+		delay := call.time.Sub(lastT)
 		if delay < minDelay {
 			minDelay = delay
 		}
 
-		lastT = t
+		lastT = call.time
 	}
 
 	return minDelay
