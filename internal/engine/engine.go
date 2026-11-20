@@ -137,7 +137,20 @@ func (e *Engine) analyzePage(ctx context.Context, page *PageReport) error {
 
 	e.pages[pageURL.String()] = page
 
-	resp, reqErr := e.fetch(ctx, pageURL)
+	resp, reqErr := e.checkURL(ctx, pageURL)
+
+	errRecorded, err := e.processPageError(page, resp, reqErr)
+	if err != nil {
+		return err
+	}
+
+	if errRecorded {
+		return nil
+	}
+
+	// TODO: process page response here if GET request was made
+
+	resp, reqErr = e.loadURL(ctx, pageURL)
 
 	defer func() {
 		if resp != nil {
@@ -306,7 +319,7 @@ func (e *Engine) analyzeAsset(ctx context.Context, asset *Asset) error {
 
 	e.assets[asset.URL.String()] = asset
 
-	resp, reqErr := e.fetch(ctx, asset.URL)
+	resp, reqErr := e.loadURL(ctx, asset.URL)
 
 	errIsRecorded, err := e.processAssetError(asset, resp, reqErr)
 	if err != nil {
@@ -354,8 +367,17 @@ func (*Engine) processAssetResponse(asset *Asset, resp *http.Response) {
 	asset.SizeBytes = bodySize
 }
 
-func (e *Engine) fetch(ctx context.Context, u *url.URL) (*http.Response, error) {
+func (e *Engine) loadURL(ctx context.Context, u *url.URL) (*http.Response, error) {
 	req, err := e.prepareRequest(ctx, "GET", "", u)
+	if err != nil {
+		return nil, err
+	}
+
+	return e.doRequest(ctx, req)
+}
+
+func (e *Engine) checkURL(ctx context.Context, u *url.URL) (*http.Response, error) {
+	req, err := e.prepareRequest(ctx, "HEAD", "GET", u)
 	if err != nil {
 		return nil, err
 	}
