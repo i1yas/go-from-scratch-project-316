@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	tu "code/internal/testutils"
@@ -1014,11 +1015,20 @@ func TestEngineAnalyze_Assets(t *testing.T) {
 	_, err = e.Analyze(t.Context())
 	require.NoError(t, err)
 
-	require.Equal(t, 1, server.CallsCountToURI("/style.css"))
-	require.Equal(t, 1, server.CallsCountToURI("/script.js"))
-	require.Equal(t, 1, server.CallsCountToURI("/image-1.png"))
-	require.Equal(t, 1, server.CallsCountToURI("/image-2.png"))
-	require.Equal(t, 1, server.CallsCountToURI("/image-3.png"))
+	assert.Equal(t, 1, server.CallsCountToRoute("HEAD", "/style.css"))
+	assert.Equal(t, 1, server.CallsCountToRoute("GET", "/style.css"))
+
+	assert.Equal(t, 1, server.CallsCountToRoute("HEAD", "/script.js"))
+	assert.Equal(t, 0, server.CallsCountToRoute("GET", "/script.js"))
+
+	assert.Equal(t, 1, server.CallsCountToRoute("HEAD", "/image-1.png"))
+	assert.Equal(t, 1, server.CallsCountToRoute("GET", "/image-1.png"))
+
+	assert.Equal(t, 1, server.CallsCountToRoute("HEAD", "/image-2.png"))
+	assert.Equal(t, 1, server.CallsCountToRoute("GET", "/image-2.png"))
+
+	assert.Equal(t, 1, server.CallsCountToRoute("HEAD", "/image-3.png"))
+	assert.Equal(t, 0, server.CallsCountToRoute("GET", "/image-3.png"))
 }
 
 func TestEngineAnalyze_PageWithoutLinks(t *testing.T) {
