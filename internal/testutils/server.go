@@ -108,8 +108,8 @@ func (ts *TestServer) TotalCallsCount() int {
 	return len(ts.calls)
 }
 
-// CallsCountTo returns calls count to specified uri (combine all routes)
-func (ts *TestServer) CallsCountTo(uri string) int {
+// CallsCountToURI returns calls count to specified uri (combine all routes)
+func (ts *TestServer) CallsCountToURI(uri string) int {
 	defer ts.mu.Unlock()
 
 	ts.mu.Lock()
