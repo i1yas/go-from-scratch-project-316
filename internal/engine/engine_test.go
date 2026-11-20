@@ -113,7 +113,7 @@ func TestEngineAnalyze_RootURLNormalized(t *testing.T) {
 func TestEngineAnalyze_CustomUserAgent(t *testing.T) {
 	wantUserAgent := "custom-user-agent"
 
-	gotUserAgent := make(chan string)
+	gotUserAgent := make(chan string, 10)
 	analyzeEnded := make(chan struct{})
 
 	server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerRoute{
