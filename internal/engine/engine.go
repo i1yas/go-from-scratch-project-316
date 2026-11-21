@@ -157,7 +157,7 @@ func (e *Engine) analyzePage(ctx context.Context, page *PageReport) error {
 		}
 	}
 
-	if e.isForeignLink(page.URL) {
+	if e.isExternalURL(page.URL) {
 		return nil
 	}
 
@@ -486,7 +486,7 @@ func (e *Engine) waitRequestDelay(ctx context.Context) {
 	}
 }
 
-func (e *Engine) isForeignLink(link *url.URL) bool {
+func (e *Engine) isExternalURL(link *url.URL) bool {
 	return e.rootURL.Host != link.Host
 }
 
