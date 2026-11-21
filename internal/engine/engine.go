@@ -165,13 +165,15 @@ func (e *Engine) analyzePage(ctx context.Context, page *PageReport) error {
 		return nil
 	}
 
-	// TODO: process page response here if GET request was made
+	notLoaded := resp == nil || resp.Request != nil && resp.Request.Method != "GET"
 
-	resp, reqErr = e.loadURL(ctx, pageURL)
+	if notLoaded {
+		resp, reqErr = e.loadURL(ctx, pageURL)
 
-	errIsRecorded, err := e.processPageError(page, resp, reqErr)
-	if err != nil || errIsRecorded {
-		return err
+		errIsRecorded, err := e.processPageError(page, resp, reqErr)
+		if err != nil || errIsRecorded {
+			return err
+		}
 	}
 
 	return e.processPageResponse(ctx, page, resp)

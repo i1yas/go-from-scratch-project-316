@@ -307,20 +307,26 @@ func TestEningeAnalyze_RootURLFailed(t *testing.T) {
 }
 
 func TestEngineAnalyze_SwitchFromHeadToGet(t *testing.T) {
-	pageContent := []byte(`
+	rootPageContent := []byte(`
 	<body>
+		<a href="/nested">Nested</a>
 		<img src="/image.png">
 	</body>
 	`)
 
+	nestedPageContent := loadFixture(t, "page-without-links.html")
+
 	server := tu.SetupTestServer(t, "test.com", map[string]tu.TestServerRoute{
-		"/": {Fn: func(w http.ResponseWriter, r *http.Request) {
+		"/": {Status: 200, Body: rootPageContent, ContentType: "text/html"},
+		"/nested": {Fn: func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == "HEAD" {
 				w.WriteHeader(http.StatusMethodNotAllowed)
 				return
 			}
 
-			_, err := w.Write(pageContent)
+			w.Header().Set("Content-Type", "text/html")
+
+			_, err := w.Write(nestedPageContent)
 			require.NoError(t, err)
 		}},
 		"/image.png": {Fn: func(w http.ResponseWriter, r *http.Request) {
@@ -364,16 +370,29 @@ func TestEngineAnalyze_SwitchFromHeadToGet(t *testing.T) {
 					},
 				},
 			},
+			{
+				URL:        testURL(t, "http://test.com/nested"),
+				Depth:      1,
+				HTTPStatus: 200,
+				Status:     "ok",
+				SEO: PageSEO{
+					HasTitle: true,
+					Title:    "Document",
+				},
+			},
 		},
 	}
 
 	requireReportMatches(t, want, got)
 
 	assert.Equal(t, 0, server.CallsCountToRoute("HEAD", "/"))
-	assert.Greater(t, server.CallsCountToRoute("GET", "/"), 0)
+	assert.Equal(t, 1, server.CallsCountToRoute("GET", "/"))
+
+	assert.Equal(t, 1, server.CallsCountToRoute("HEAD", "/nested"))
+	assert.Equal(t, 1, server.CallsCountToRoute("GET", "/nested"), "should make only 1 request to GET /nested")
 
 	assert.Equal(t, 1, server.CallsCountToRoute("HEAD", "/image.png"))
-	assert.Greater(t, server.CallsCountToRoute("GET", "/image.png"), 0)
+	assert.Equal(t, 2, server.CallsCountToRoute("GET", "/image.png"))
 }
 
 func TestEngineAnalyze_PagesFetchedOnce(t *testing.T) {
