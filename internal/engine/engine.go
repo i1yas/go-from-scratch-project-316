@@ -142,6 +142,12 @@ func (e *Engine) analyzePage(ctx context.Context, page *PageReport) error {
 		reqErr error
 	)
 
+	defer func() {
+		if resp != nil {
+			resp.Body.Close() // nolint: errcheck
+		}
+	}()
+
 	if page.parent != nil {
 		resp, reqErr = e.checkURL(ctx, pageURL)
 
@@ -162,12 +168,6 @@ func (e *Engine) analyzePage(ctx context.Context, page *PageReport) error {
 	// TODO: process page response here if GET request was made
 
 	resp, reqErr = e.loadURL(ctx, pageURL)
-
-	defer func() {
-		if resp != nil {
-			resp.Body.Close() // nolint: errcheck
-		}
-	}()
 
 	errIsRecorded, err := e.processPageError(page, resp, reqErr)
 	if err != nil || errIsRecorded {
