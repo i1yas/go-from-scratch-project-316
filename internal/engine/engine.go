@@ -334,23 +334,15 @@ func (e *Engine) analyzeAsset(ctx context.Context, asset *Asset) error {
 	resp, reqErr = e.checkURL(ctx, asset.URL)
 
 	errIsRecorded, err := e.processAssetError(asset, resp, reqErr)
-	if err != nil {
+	if err != nil || errIsRecorded {
 		return err
-	}
-
-	if errIsRecorded {
-		return nil
 	}
 
 	resp, reqErr = e.loadURL(ctx, asset.URL, nil)
 
 	errIsRecorded, err = e.processAssetError(asset, resp, reqErr)
-	if err != nil {
+	if err != nil || errIsRecorded {
 		return err
-	}
-
-	if errIsRecorded {
-		return nil
 	}
 
 	e.processAssetResponse(asset, resp)
