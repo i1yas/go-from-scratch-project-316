@@ -128,11 +128,21 @@ func (e *Engine) analyzeLink(ctx context.Context, ln pageLink) error {
 
 		return e.analyzePage(ctx, page)
 	default:
-		return e.analyzeAsset(ctx, &Asset{
+		foundAsset, ok := e.assets[ln.url.String()]
+		if ok {
+			ln.parent.Assets[ln.url.String()] = foundAsset
+			return nil
+		}
+
+		asset := &Asset{
 			URL:    ln.url,
 			Type:   linkTypeToAssetType(ln.typ),
 			parent: ln.parent,
-		})
+		}
+
+		e.assets[asset.URL.String()] = asset
+
+		return e.analyzeAsset(ctx, asset)
 	}
 }
 
@@ -310,14 +320,6 @@ func (e *Engine) processDocument(
 }
 
 func (e *Engine) analyzeAsset(ctx context.Context, asset *Asset) error {
-	foundAsset, ok := e.assets[asset.URL.String()]
-	if ok {
-		asset.parent.Assets[asset.URL.String()] = foundAsset
-		return nil
-	}
-
-	e.assets[asset.URL.String()] = asset
-
 	var (
 		resp   *http.Response
 		reqErr error
