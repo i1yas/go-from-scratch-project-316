@@ -338,7 +338,7 @@ func (e *Engine) analyzeAsset(ctx context.Context, asset *Asset) error {
 		return err
 	}
 
-	resp, reqErr = e.loadURL(ctx, asset.URL, nil)
+	resp, reqErr = e.loadURL(ctx, asset.URL, resp)
 
 	errIsRecorded, err = e.processAssetError(asset, resp, reqErr)
 	if err != nil || errIsRecorded {

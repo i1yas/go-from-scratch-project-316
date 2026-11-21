@@ -392,7 +392,7 @@ func TestEngineAnalyze_SwitchFromHeadToGet(t *testing.T) {
 	assert.Equal(t, 1, server.CallsCountToRoute("GET", "/nested"), "should make only 1 request to GET /nested")
 
 	assert.Equal(t, 1, server.CallsCountToRoute("HEAD", "/image.png"))
-	assert.Equal(t, 2, server.CallsCountToRoute("GET", "/image.png"))
+	assert.Equal(t, 1, server.CallsCountToRoute("GET", "/image.png"))
 }
 
 func TestEngineAnalyze_PagesFetchedOnce(t *testing.T) {
