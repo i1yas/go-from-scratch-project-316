@@ -115,14 +115,18 @@ func (e *Engine) analyzeLink(ctx context.Context, ln pageLink) error {
 			return nil
 		}
 
-		return e.analyzePage(ctx, &PageReport{
+		page := &PageReport{
 			URL:          ln.url,
 			Depth:        depth,
 			DiscoveredAt: e.clock(),
 			Assets:       map[string]*Asset{},
 			BrokenLinks:  map[string]*BrokenLink{},
 			parent:       ln.parent,
-		})
+		}
+
+		e.pages[page.URL.String()] = page
+
+		return e.analyzePage(ctx, page)
 	default:
 		return e.analyzeAsset(ctx, &Asset{
 			URL:    ln.url,
@@ -133,10 +137,6 @@ func (e *Engine) analyzeLink(ctx context.Context, ln pageLink) error {
 }
 
 func (e *Engine) analyzePage(ctx context.Context, page *PageReport) error {
-	pageURL := page.URL
-
-	e.pages[pageURL.String()] = page
-
 	var (
 		resp   *http.Response
 		reqErr error
@@ -149,7 +149,7 @@ func (e *Engine) analyzePage(ctx context.Context, page *PageReport) error {
 	}()
 
 	if page.parent != nil {
-		resp, reqErr = e.checkURL(ctx, pageURL)
+		resp, reqErr = e.checkURL(ctx, page.URL)
 
 		errRecorded, err := e.processPageError(page, resp, reqErr)
 		if err != nil || errRecorded {
@@ -165,7 +165,7 @@ func (e *Engine) analyzePage(ctx context.Context, page *PageReport) error {
 		return nil
 	}
 
-	resp, reqErr = e.loadURL(ctx, pageURL, resp)
+	resp, reqErr = e.loadURL(ctx, page.URL, resp)
 
 	errIsRecorded, err := e.processPageError(page, resp, reqErr)
 	if err != nil || errIsRecorded {
