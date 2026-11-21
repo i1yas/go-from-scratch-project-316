@@ -165,15 +165,11 @@ func (e *Engine) analyzePage(ctx context.Context, page *PageReport) error {
 		return nil
 	}
 
-	notLoaded := resp == nil || resp.Request != nil && resp.Request.Method != "GET"
+	resp, reqErr = e.loadURL(ctx, pageURL, resp)
 
-	if notLoaded {
-		resp, reqErr = e.loadURL(ctx, pageURL)
-
-		errIsRecorded, err := e.processPageError(page, resp, reqErr)
-		if err != nil || errIsRecorded {
-			return err
-		}
+	errIsRecorded, err := e.processPageError(page, resp, reqErr)
+	if err != nil || errIsRecorded {
+		return err
 	}
 
 	return e.processPageResponse(ctx, page, resp)
@@ -344,7 +340,7 @@ func (e *Engine) analyzeAsset(ctx context.Context, asset *Asset) error {
 		return nil
 	}
 
-	resp, reqErr = e.loadURL(ctx, asset.URL)
+	resp, reqErr = e.loadURL(ctx, asset.URL, nil)
 
 	errIsRecorded, err = e.processAssetError(asset, resp, reqErr)
 	if err != nil {
@@ -392,8 +388,8 @@ func (*Engine) processAssetResponse(asset *Asset, resp *http.Response) {
 	asset.SizeBytes = bodySize
 }
 
-func (e *Engine) loadURL(ctx context.Context, u *url.URL) (*http.Response, error) {
-	req, err := e.prepareRequest(ctx, "GET", "", u)
+func (e *Engine) checkURL(ctx context.Context, u *url.URL) (*http.Response, error) {
+	req, err := e.prepareRequest(ctx, "HEAD", "GET", u)
 	if err != nil {
 		return nil, err
 	}
@@ -401,8 +397,14 @@ func (e *Engine) loadURL(ctx context.Context, u *url.URL) (*http.Response, error
 	return e.doRequest(ctx, req)
 }
 
-func (e *Engine) checkURL(ctx context.Context, u *url.URL) (*http.Response, error) {
-	req, err := e.prepareRequest(ctx, "HEAD", "GET", u)
+func (e *Engine) loadURL(ctx context.Context, u *url.URL, checkResp *http.Response) (*http.Response, error) {
+	isLoaded := checkResp != nil && checkResp.Request != nil && checkResp.Request.Method == "GET"
+
+	if isLoaded {
+		return checkResp, nil
+	}
+
+	req, err := e.prepareRequest(ctx, "GET", "", u)
 	if err != nil {
 		return nil, err
 	}
